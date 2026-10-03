@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>ChatGPT fixture: role layout</title></head>
+<body>
+<!-- The layout before 2026-09: every message carries data-message-author-role. -->
+<main>
+  <article data-turn="user">
+    <div data-message-author-role="user"><div>{"prompt": true}</div></div>
+  </article>
+  <article data-turn="assistant">
+    <div data-message-author-role="assistant">
+      <div class="markdown">
+        <p>Here is the resume.</p>
+        <pre><div class="header">json<button>Copy code</button></div><code>{"contact": {"fullName": "Jane Doe"}, "skills": ["Python", "SQL"]}</code></pre>
+      </div>
+    </div>
+    <!-- ChatGPT renders an extra, empty reply node; it must be skipped. -->
+    <div data-message-author-role="assistant"></div>
+  </article>
+</main>
+<form><div id="prompt-textarea" class="ProseMirror" contenteditable="true"><p><br></p></div></form>
+<button type="button" aria-label="Start Voice">Voice</button>
+</body>
+</html>

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sign in to continue</title>
+</head>
+<body>
+<header><a href="/">TalentHub</a></header>
+<main>
+  <h1>Sign in</h1>
+  <p>Sign in to view this job and apply.</p>
+  <form action="/session" method="post">
+    <label>Email <input type="email" name="email"></label>
+    <label>Password <input type="password" name="password"></label>
+    <button id="login" type="submit" onclick="window.__loginClicked = true; return false;">Sign in</button>
+  </form>
+  <p>New here? <a href="/signup">Create an account</a></p>
+</main>
+</body>
+</html>

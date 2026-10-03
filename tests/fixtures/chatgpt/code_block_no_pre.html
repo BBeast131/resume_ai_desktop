@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>ChatGPT fixture: code block without pre</title></head>
+<body>
+<!-- 2026-09: a code block is a div, not a <pre>. Its header ("json", Copy) is
+     marked data-markdown-copy="exclude" and must not be read. -->
+<main>
+  <div data-content-search-unit-key="fallback-turn-0:2:assistant" data-chatgpt-search-unit-key="fallback-turn-0:2:assistant">
+    <h4 data-conversation-role="assistant">ChatGPT said:</h4>
+    <div data-markdown-text-style="assistant-message">
+      <p>Here you go:</p>
+      <div data-markdown-copy="code-block">
+        <div data-markdown-copy="exclude">json<button>Copy</button></div>
+        <div aria-hidden="true"><code>{"a": 1, "list": [1, 2, {"b": "x"}]}</code></div>
+      </div>
+    </div>
+  </div>
+</main>
+</body>
+</html>

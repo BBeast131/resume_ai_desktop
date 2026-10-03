@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Application</title>
+</head>
+<body>
+<header><a href="/">Brightside Health</a></header>
+<main>
+  <h1>Product Designer</h1>
+  <p>Please fill in the form below.</p>
+  <form action="/apply/submit" method="post">
+    <label>First name <input type="text" name="first"></label>
+    <label>Last name <input type="text" name="last"></label>
+    <label>Email <input type="email" name="email"></label>
+    <label>Phone <input type="tel" name="phone"></label>
+    <label>Resume <input type="file" name="resume"></label>
+    <label>Why do you want to work here? <textarea name="why"></textarea></label>
+    <label>Country <select name="country"><option>United States</option><option>Canada</option></select></label>
+    <label><input type="radio" name="auth" value="yes"> Authorised to work</label>
+    <label><input type="radio" name="auth" value="no"> Not authorised to work</label>
+    <input type="hidden" name="csrf" value="x">
+    <button type="submit" onclick="window.__submitted = true; return false;">Submit application</button>
+  </form>
+</main>
+<footer>© Brightside Health</footer>
+</body>
+</html>

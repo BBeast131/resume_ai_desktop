@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Careers at Contoso</title>
+</head>
+<body>
+<div id="consent-wall" class="consent-wall" role="dialog" aria-modal="true" style="position:fixed;inset:0;background:#fff;z-index:1000">
+  <h1>Before you continue</h1>
+  <p>Contoso and its partners use cookies and similar technologies to store and access information on your device, to
+  personalise content, to measure how the site is used and to improve your experience with our services. You can accept
+  all cookies or manage your choices. The requirements of the law in your region decide which options you see.</p>
+  <button id="accept" onclick="window.__consentClicked = true">Accept all</button>
+  <button id="manage" onclick="window.__consentClicked = true">Manage choices</button>
+</div>
+<!-- The site loads the posting only after an answer. -->
+<main id="content" style="display:none"></main>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ChatGPT fixture: composer</title>
+<style>
+  body { font-family: sans-serif; margin: 24px; }
+  #prompt-textarea { border: 1px solid #999; min-height: 60px; max-height: 160px; overflow: auto; padding: 8px; }
+  #chips button { margin: 4px; }
+</style>
+</head>
+<body>
+<!--
+  A stand-in for chatgpt.com that reproduces the behaviours the bridge depends on:
+    - a ProseMirror-style contenteditable composer that only accepts text through
+      paste events;
+    - a paste of 10,000+ characters becomes a "pasted text" chip, not text;
+    - a paste sent right after selectAll + delete on an EMPTY composer is dropped
+      (the measured bug behind the "only clear a draft when there is one" rule);
+    - Enter sends; a visible "Stop" button shows while answering and turns into
+      "Start Voice" afterwards;
+    - the reply uses the 2026-09 layout (search unit + heading + markdown body, no
+      role attribute), with an auto-linked e-mail carrying an excluded icon span.
+
+  A test changes the behaviour by setting fields of window.__fixture before sending:
+    replyDelayMs      ms before the reply appears (default 900)
+    streamMs          > 0: the reply first appears unfinished and is completed after this long
+    keepStop          the Stop button stays after the reply is complete
+    neverReply        Stop shows for ever and no reply comes
+    swallowFirstPaste the first paste event is ignored (a fresh composer can do that)
+
+  window.__state() reports what happened, in numbers only.
+-->
+<main id="thread"></main>
+
+<form id="composer-form" onsubmit="return false">
+  <div id="chips"></div>
+  <div id="prompt-textarea" class="ProseMirror" contenteditable="true"><p><br></p></div>
+  <button id="composer-submit-button" type="button" aria-label="Send prompt" disabled>Send</button>
+  <span id="voice"><button type="button" aria-label="Start Voice">Voice</button></span>
+</form>
+
+<script>
+(function () {
+  const composer = document.getElementById('prompt-textarea');
+  const send = document.getElementById('composer-submit-button');
+  const chips = document.getElementById('chips');
+  const thread = document.getElementById('thread');
+  const voice = document.getElementById('voice');
+  let doc = '';           // the editor's own document, like ProseMirror's state
+  let dropPastesUntil = 0;
+  const stats = { pastes: 0, droppedPastes: 0, swallowedPastes: 0, largestPaste: 0, selectAll: 0, deletes: 0, enterSends: 0, clickSends: 0 };
+  window.__sent = [];     // what was actually submitted
+  window.__fixture = { replyDelayMs: 900, streamMs: 0, keepStop: false, neverReply: false, swallowFirstPaste: false };
+
+  function render() {
+    composer.innerHTML = '';
+    const lines = doc.length ? doc.split('\n') : [''];
+    for (const line of lines) {
+      const p = document.createElement('p');
+      if (line) p.textContent = line; else p.appendChild(document.createElement('br'));
+      composer.appendChild(p);
+    }
+    send.disabled = doc.trim().length === 0 && chips.children.length === 0;
+  }
+
+  // The measured bug: selectAll + delete on an empty composer leaves the
+  // editor in a state where the next paste is silently dropped.
+  const realExecCommand = document.execCommand.bind(document);
+  document.execCommand = function (command) {
+    const name = String(command).toLowerCase();
+    if (name === 'selectall') stats.selectAll += 1;
+    if (name === 'delete') {
+      stats.deletes += 1;
+      if (doc.trim().length === 0) dropPastesUntil = Date.now() + 250;
+    }
+    return realExecCommand.apply(document, arguments);
+  };
+
+  composer.addEventListener('paste', (event) => {
+    event.preventDefault();
+    const text = event.clipboardData.getData('text/plain');
+    stats.pastes += 1;
+    stats.largestPaste = Math.max(stats.largestPaste, text.length);
+    if (window.__fixture.swallowFirstPaste && stats.pastes === 1) { stats.swallowedPastes += 1; return; }
+    if (Date.now() < dropPastesUntil) { stats.droppedPastes += 1; return; }
+    if (text.length >= 10000) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.textContent = 'Pasted text · Show in text field';
+      chips.appendChild(chip);
+    } else {
+      doc += text;
+    }
+    render();
+  });
+
+  // Typing or deleting changes the page first; the editor then syncs its own
+  // document from it, as ProseMirror does.
+  composer.addEventListener('input', () => {
+    doc = Array.from(composer.querySelectorAll('p')).map((p) => p.textContent).join('\n');
+    if (!composer.querySelector('p')) doc = composer.textContent || '';
+    send.disabled = doc.trim().length === 0 && chips.children.length === 0;
+  });
+
+  // For tests: put a draft in the composer as if the user had typed it.
+  window.__setDraft = (text) => { doc = text; render(); };
+
+  window.__state = () => ({
+    length: doc.length,
+    chips: chips.children.length,
+    sent: window.__sent.length,
+    sentLengths: window.__sent.map((text) => text.length),
+    replies: thread.querySelectorAll('[data-content-search-unit-key$=":assistant"]').length,
+    ...stats,
+  });
+  // For tests: does the text that was sent equal the expected text? (No text crosses back.)
+  window.__sentEquals = (index, expected) => window.__sent[index] === expected;
+
+  const idle = () => { voice.innerHTML = '<button type="button" aria-label="Start Voice">Voice</button>'; };
+
+  function replyBody(received, turn, complete) {
+    const head =
+      '<span>{</span><br><span>"ok": true,</span><br><span>"turn": ' + turn + ',</span><br><span>"email": "</span>' +
+      '<a href="mailto:a@b.co"><span>a@b.co</span>' +
+      '<span data-markdown-copy="exclude" style="display:inline-block"><svg width="8" height="8"></svg></span></a>' +
+      '<span>",</span>';
+    const tail = '<br><span>"received": ' + received + '</span><br><span>}</span>';
+    return '<p>' + head + (complete ? tail : '') + '</p>';
+  }
+
+  function submit(how) {
+    if (!doc.trim() && chips.children.length === 0) return;
+    stats[how] += 1;
+    window.__sent.push(doc);
+    const turn = window.__sent.length;
+    const received = doc.length;
+    const user = document.createElement('div');
+    user.setAttribute('data-content-search-unit-key', 'fallback-turn-' + turn + ':0:user');
+    user.innerHTML = '<div data-user-message-bubble="true"></div>';
+    user.firstChild.textContent = doc;
+    thread.appendChild(user);
+    doc = ''; chips.innerHTML = ''; render();
+
+    voice.innerHTML = '<button type="button" aria-label="Stop">Stop</button>';
+    const options = Object.assign({}, window.__fixture);
+    if (options.neverReply) return;
+
+    setTimeout(() => {
+      const unit = document.createElement('div');
+      const key = 'fallback-turn-' + turn + ':2:assistant';
+      unit.setAttribute('data-content-search-unit-key', key);
+      unit.setAttribute('data-chatgpt-search-unit-key', key);
+      unit.innerHTML =
+        '<h4 data-conversation-role="assistant">ChatGPT said:</h4>' +
+        '<div data-markdown-text-style="assistant-message"></div>';
+      const body = unit.lastChild;
+      thread.appendChild(unit);
+
+      const finish = () => {
+        body.innerHTML = replyBody(received, turn, true);
+        if (!options.keepStop) idle();
+      };
+      if (options.streamMs > 0) {
+        body.innerHTML = replyBody(received, turn, false);
+        setTimeout(finish, options.streamMs);
+      } else {
+        finish();
+      }
+    }, options.replyDelayMs);
+  }
+
+  composer.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit('enterSends'); }
+  });
+  send.addEventListener('click', () => submit('clickSends'));
+
+  render();
+})();
+</script>
+</body>
+</html>

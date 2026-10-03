@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>ChatGPT fixture: finished</title></head>
+<body>
+<!-- Finished: the Stop button is still in the DOM but not displayed, the voice
+     button is back, and a "Stop dictation" button is visible. None of these
+     means ChatGPT is still answering. -->
+<main>
+  <div data-message-author-role="assistant"><pre><code>{"a":1}</code></pre></div>
+</main>
+<form>
+  <div id="prompt-textarea" class="ProseMirror" contenteditable="true"><p><br></p></div>
+  <div style="display:none"><button type="button" id="stop" data-testid="stop-button" aria-label="Stop">Stop</button></div>
+  <button type="button" id="dictation" aria-label="Stop dictation">Stop dictation</button>
+  <button type="button" aria-label="Start Voice">Voice</button>
+</form>
+</body>
+</html>

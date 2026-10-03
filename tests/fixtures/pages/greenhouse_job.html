@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Job Application for Staff Data Engineer at Acme Analytics</title>
+</head>
+<body>
+<div id="wrapper">
+  <div id="main">
+    <div id="header">
+      <h1 class="app-title">Staff Data Engineer</h1>
+      <span class="company-name"> at Acme Analytics </span>
+      <div class="location">Remote, United States</div>
+    </div>
+    <div id="content">
+      <p>Acme Analytics helps hospitals understand their own data. Our pipelines move billions of records a day and the
+      people who rely on them are clinicians, so correctness matters more than speed.</p>
+      <p><strong>What you will do</strong></p>
+      <ul>
+        <li>Own the ingestion platform built on Spark, Airflow and dbt.</li>
+        <li>Set the standards for data quality checks and make them easy to adopt.</li>
+        <li>Mentor four engineers and review the designs of two partner teams.</li>
+      </ul>
+      <p><strong>Requirements</strong></p>
+      <ul>
+        <li>Eight years of data engineering, including time as a technical lead.</li>
+        <li>Deep experience with SQL, Python and a columnar warehouse such as Snowflake.</li>
+        <li>A record of making slow, fragile pipelines boring and dependable.</li>
+      </ul>
+      <p>We offer competitive pay, full health benefits and a yearly team week in Lisbon.</p>
+    </div>
+    <div id="application">
+      <form id="application_form" action="/acme/jobs/4012345/submit" method="post">
+        <h2>Apply for this Job</h2>
+        <label for="first_name">First Name</label><input type="text" id="first_name" name="first_name">
+        <label for="last_name">Last Name</label><input type="text" id="last_name" name="last_name">
+        <label for="email">Email</label><input type="email" id="email" name="email">
+        <label for="phone">Phone</label><input type="tel" id="phone" name="phone">
+        <label for="resume">Resume/CV</label><input type="file" id="resume" name="resume">
+        <p>We are an equal opportunity employer. Completing the voluntary self-identification survey below is optional
+        and your answers are never shown to the hiring team.</p>
+        <input type="submit" id="submit_app" value="Submit Application" onclick="window.__submitted = true; return false;">
+      </form>
+    </div>
+  </div>
+  <div class="similar-jobs">
+    <h2>Similar jobs</h2>
+    <ul><li><a href="/acme/jobs/1">Analytics Engineer</a> requires experience with dashboards and reporting.</li></ul>
+  </div>
+  <footer>Powered by Greenhouse. Read our privacy policy.</footer>
+</div>
+</body>
+</html>

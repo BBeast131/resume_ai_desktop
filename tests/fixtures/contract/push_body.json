@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "accountId": "11111111-1111-4111-8111-111111111111",
+  "origin": "desktop",
+  "generatedResumes": [
+    {
+      "id": "276c2ffb-bd0c-4e06-95f6-6886b69cc057",
+      "candidateName": "Anthony Fox",
+      "role": "Senior Platform Engineer",
+      "company": "Acme Robotics",
+      "jdUrl": "https://boards.greenhouse.io/acme/jobs/1",
+      "applyUrl": null,
+      "jdText": "We are hiring a Staff Engineer to build distributed systems. We are hiring a Staff Engineer to build distributed systems. We are hiring a Staff Engineer to build distributed systems. We are hiring a Staff Engineer to build distributed systems. We are hiring a Staff Engineer to build distributed systems. ",
+      "chatUrl": "https://chatgpt.com/c/abcdef12-3456-7890-abcd-ef1234567890",
+      "resumeJson": "{\"contact\": {\"fullName\": \"Anthony Fox\", \"headline\": \"Staff Software Engineer\", \"email\": \"anthony@example.com\", \"phone\": \"(512) 555-0134\", \"location\": \"Austin, TX\"}, \"summary\": [\"Staff engineer building distributed systems.\"], \"skills\": [{\"category\": \"Languages\", \"items\": [\"TypeScript\", \"Python\"]}], \"experience\": [{\"company\": \"Salesforce\", \"location\": \"San Francisco, CA\", \"role\": \"Staff Software Engineer\", \"startDate\": \"06/2024\", \"endDate\": \"07/2026\", \"bullets\": [\"Led the migration of a monolith to services.\", \"Ran architecture reviews.\"]}]}",
+      "status": "generated",
+      "createdAt": "2026-10-01T09:00:00.000Z",
+      "statusChangedAt": null,
+      "appliedAt": null,
+      "shortlistedAt": null,
+      "rejectedAt": null
+    },
+    {
+      "id": "fae3c919-7b82-4389-bb20-267da7ab9919",
+      "candidateName": "Anthony Fox",
+      "role": "Staff Engineer",
+      "company": "Globex",
+      "jdUrl": "https://boards.greenhouse.io/acme/jobs/2",
+      "applyUrl": "https://globex.example/apply/2",
+      "jdText": "We are hiring a Staff Engineer to build distributed systems. We are hiring a Staff Engineer to build distributed systems. We are hiring a Staff Engineer to build distributed systems. We are hiring a Staff Engineer to build distributed systems. We are hiring a Staff Engineer to build distributed systems. ",
+      "chatUrl": "https://chatgpt.com/c/abcdef12-3456-7890-abcd-ef1234567890",
+      "resumeJson": "{\"contact\": {\"fullName\": \"Anthony Fox\", \"headline\": \"Staff Software Engineer\", \"email\": \"anthony@example.com\", \"phone\": \"(512) 555-0134\", \"location\": \"Austin, TX\"}, \"summary\": [\"Staff engineer building distributed systems.\"], \"skills\": [{\"category\": \"Languages\", \"items\": [\"TypeScript\", \"Python\"]}], \"experience\": [{\"company\": \"Salesforce\", \"location\": \"San Francisco, CA\", \"role\": \"Staff Software Engineer\", \"startDate\": \"06/2024\", \"endDate\": \"07/2026\", \"bullets\": [\"Led the migration of a monolith to services.\", \"Ran architecture reviews.\"]}]}",
+      "status": "applied",
+      "createdAt": "2026-10-01T10:00:00.000Z",
+      "statusChangedAt": "2026-10-02T09:00:00.000Z",
+      "appliedAt": "2026-10-02T09:00:00.000Z",
+      "shortlistedAt": null,
+      "rejectedAt": null
+    },
+    {
+      "id": "62f8ff51-9fd5-477e-b638-51fbfa6d7c5b",
+      "candidateName": "Anthony Fox",
+      "role": "Backend Engineer",
+      "company": "Initech",
+      "jdUrl": "https://boards.greenhouse.io/acme/jobs/3",
+      "applyUrl": null,
+      "jdText": "We are hiring a Staff Engineer to build distributed systems. We are hiring a Staff Engineer to build distributed systems. We are hiring a Staff Engineer to build distributed systems. We are hiring a Staff Engineer to build distributed systems. We are hiring a Staff Engineer to build distributed systems. ",
+      "chatUrl": null,
+      "resumeJson": "{\"contact\": {\"fullName\": \"Anthony Fox\", \"headline\": \"Staff Software Engineer\", \"email\": \"anthony@example.com\", \"phone\": \"(512) 555-0134\", \"location\": \"Austin, TX\"}, \"summary\": [\"Staff engineer building distributed systems.\"], \"skills\": [{\"category\": \"Languages\", \"items\": [\"TypeScript\", \"Python\"]}], \"experience\": [{\"company\": \"Salesforce\", \"location\": \"San Francisco, CA\", \"role\": \"Staff Software Engineer\", \"startDate\": \"06/2024\", \"endDate\": \"07/2026\", \"bullets\": [\"Led the migration of a monolith to services.\", \"Ran architecture reviews.\"]}]}",
+      "status": "shortlisted",
+      "createdAt": "2026-10-01T11:00:00.000Z",
+      "statusChangedAt": "2026-10-03T10:00:00.000Z",
+      "appliedAt": "2026-10-02T10:00:00.000Z",
+      "shortlistedAt": "2026-10-03T10:00:00.000Z",
+      "rejectedAt": null
+    }
+  ],
+  "savedJobs": [
+    {
+      "id": "e71e726b-0517-49ff-b0c9-35aeb9e4cb26",
+      "sourceSite": "jobright",
+      "url": "https://jobright.ai/jobs/info/10",
+      "role": "Engineer 10",
+      "company": "Company 10",
+      "attentionReason": null,
+      "createdAt": "2026-10-01T08:00:00.000Z",
+      "deletedAt": null
+    },
+    {
+      "id": "82594141-708b-4f23-959d-aecfc4504289",
+      "sourceSite": "hiring_cafe",
+      "url": "https://jobright.ai/jobs/info/11",
+      "role": "Engineer 11",
+      "company": "Company 11",
+      "attentionReason": null,
+      "createdAt": "2026-10-01T08:30:00.000Z",
+      "deletedAt": "2026-10-01T12:00:00.000Z"
+    },
+    {
+      "id": "24bd9c9e-2efa-4baa-970f-e117005b974e",
+      "sourceSite": "jobright",
+      "url": "https://jobright.ai/jobs/info/12",
+      "role": "Engineer 12",
+      "company": "Company 12",
+      "attentionReason": "page needs sign-in",
+      "createdAt": "2026-10-01T08:45:00.000Z",
+      "deletedAt": null
+    }
+  ]
+}

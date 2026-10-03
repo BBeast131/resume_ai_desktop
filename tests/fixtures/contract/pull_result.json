@@ -1,0 +1,191 @@
+{
+  "full": {
+    "generatedResumes": [
+      {
+        "id": "276c2ffb-bd0c-4e06-95f6-6886b69cc057",
+        "serverId": "generated-1",
+        "candidateName": "Anthony Fox",
+        "role": "Senior Platform Engineer",
+        "company": "Acme Robotics",
+        "jdUrl": "https://boards.greenhouse.io/acme/jobs/1",
+        "applyUrl": null,
+        "chatUrl": "https://chatgpt.com/c/abcdef12-3456-7890-abcd-ef1234567890",
+        "status": "generated",
+        "createdAt": "2026-10-01T09:00:00.000Z",
+        "statusChangedAt": null,
+        "appliedAt": null,
+        "shortlistedAt": null,
+        "rejectedAt": null,
+        "updatedAt": "2026-10-05T00:00:00.000Z",
+        "jdText": "We are hiring a Staff Engineer to build distributed systems. We are hiring a Staff Engineer to build distributed systems. We are hiring a Staff Engineer to build distributed systems. We are hiring a Staff Engineer to build distributed systems. We are hiring a Staff Engineer to build distributed systems.",
+        "resumeJson": {
+          "contact": {
+            "fullName": "Anthony Fox",
+            "headline": "Staff Software Engineer",
+            "email": "anthony@example.com",
+            "phone": "(512) 555-0134",
+            "location": "Austin, TX"
+          },
+          "summary": [
+            "Staff engineer building distributed systems."
+          ],
+          "skills": [
+            {
+              "category": "Languages",
+              "items": [
+                "TypeScript",
+                "Python"
+              ]
+            }
+          ],
+          "experience": [
+            {
+              "company": "Salesforce",
+              "location": "San Francisco, CA",
+              "role": "Staff Software Engineer",
+              "startDate": "06/2024",
+              "endDate": "07/2026",
+              "bullets": [
+                "Led the migration of a monolith to services.",
+                "Ran architecture reviews."
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "fae3c919-7b82-4389-bb20-267da7ab9919",
+        "serverId": "generated-2",
+        "candidateName": "Anthony Fox",
+        "role": "Staff Engineer",
+        "company": "Globex",
+        "jdUrl": "https://boards.greenhouse.io/acme/jobs/2",
+        "applyUrl": "https://globex.example/apply/2",
+        "chatUrl": "https://chatgpt.com/c/abcdef12-3456-7890-abcd-ef1234567890",
+        "status": "applied",
+        "createdAt": "2026-10-01T10:00:00.000Z",
+        "statusChangedAt": "2026-10-02T09:00:00.000Z",
+        "appliedAt": "2026-10-02T09:00:00.000Z",
+        "shortlistedAt": null,
+        "rejectedAt": null,
+        "updatedAt": "2026-10-05T00:00:01.000Z",
+        "jdText": "We are hiring a Staff Engineer to build distributed systems. We are hiring a Staff Engineer to build distributed systems. We are hiring a Staff Engineer to build distributed systems. We are hiring a Staff Engineer to build distributed systems. We are hiring a Staff Engineer to build distributed systems.",
+        "resumeJson": {
+          "contact": {
+            "fullName": "Anthony Fox",
+            "headline": "Staff Software Engineer",
+            "email": "anthony@example.com",
+            "phone": "(512) 555-0134",
+            "location": "Austin, TX"
+          },
+          "summary": [
+            "Staff engineer building distributed systems."
+          ],
+          "skills": [
+            {
+              "category": "Languages",
+              "items": [
+                "TypeScript",
+                "Python"
+              ]
+            }
+          ],
+          "experience": [
+            {
+              "company": "Salesforce",
+              "location": "San Francisco, CA",
+              "role": "Staff Software Engineer",
+              "startDate": "06/2024",
+              "endDate": "07/2026",
+              "bullets": [
+                "Led the migration of a monolith to services.",
+                "Ran architecture reviews."
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "62f8ff51-9fd5-477e-b638-51fbfa6d7c5b",
+        "serverId": "generated-3",
+        "candidateName": "Anthony Fox",
+        "role": "Backend Engineer",
+        "company": "Initech",
+        "jdUrl": "https://boards.greenhouse.io/acme/jobs/3",
+        "applyUrl": null,
+        "chatUrl": null,
+        "status": "shortlisted",
+        "createdAt": "2026-10-01T11:00:00.000Z",
+        "statusChangedAt": "2026-10-03T10:00:00.000Z",
+        "appliedAt": "2026-10-02T10:00:00.000Z",
+        "shortlistedAt": "2026-10-03T10:00:00.000Z",
+        "rejectedAt": null,
+        "updatedAt": "2026-10-05T00:00:02.000Z",
+        "jdText": "We are hiring a Staff Engineer to build distributed systems. We are hiring a Staff Engineer to build distributed systems. We are hiring a Staff Engineer to build distributed systems. We are hiring a Staff Engineer to build distributed systems. We are hiring a Staff Engineer to build distributed systems.",
+        "resumeJson": {
+          "contact": {
+            "fullName": "Anthony Fox",
+            "headline": "Staff Software Engineer",
+            "email": "anthony@example.com",
+            "phone": "(512) 555-0134",
+            "location": "Austin, TX"
+          },
+          "summary": [
+            "Staff engineer building distributed systems."
+          ],
+          "skills": [
+            {
+              "category": "Languages",
+              "items": [
+                "TypeScript",
+                "Python"
+              ]
+            }
+          ],
+          "experience": [
+            {
+              "company": "Salesforce",
+              "location": "San Francisco, CA",
+              "role": "Staff Software Engineer",
+              "startDate": "06/2024",
+              "endDate": "07/2026",
+              "bullets": [
+                "Led the migration of a monolith to services.",
+                "Ran architecture reviews."
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "deleted": [],
+    "cursor": "eyJhIjoiMjAyNi0xMC0wNVQwMDowMDowMi4wMDBaIiwidCI6bnVsbH0",
+    "hasMore": false,
+    "serverTime": "2026-10-02T23:08:22.479Z"
+  },
+  "changed": {
+    "generatedResumes": [
+      {
+        "id": "276c2ffb-bd0c-4e06-95f6-6886b69cc057",
+        "serverId": "33333333-3333-4333-8333-333333333333",
+        "candidateName": "Anthony Fox",
+        "role": "Senior Platform Engineer",
+        "company": "Acme Robotics",
+        "jdUrl": "https://boards.greenhouse.io/acme/jobs/1",
+        "applyUrl": null,
+        "chatUrl": "https://chatgpt.com/c/abcdef12-3456-7890-abcd-ef1234567890",
+        "status": "rejected",
+        "createdAt": "2026-10-01T09:00:00.000Z",
+        "statusChangedAt": "2026-10-02T23:08:22.481Z",
+        "appliedAt": "2026-10-02T23:08:22.481Z",
+        "shortlistedAt": null,
+        "rejectedAt": "2026-10-02T23:08:22.481Z",
+        "updatedAt": "2026-10-05T00:00:09.000Z"
+      }
+    ],
+    "deleted": [],
+    "cursor": "eyJhIjoiMjAyNi0xMC0wNVQwMDowMDowOS4wMDBaIiwidCI6bnVsbH0",
+    "hasMore": false,
+    "serverTime": "2026-10-02T23:08:22.481Z"
+  }
+}

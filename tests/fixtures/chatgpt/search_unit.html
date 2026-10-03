@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>ChatGPT fixture: 2026-09 search-unit layout</title></head>
+<body>
+<!-- Measured live on 2026-09-26: no role attribute at all. The reply is a
+     search unit holding a heading ("ChatGPT said:") and a markdown body. -->
+<main>
+  <div data-content-search-unit-key="fallback-turn-0:0:user" data-chatgpt-search-unit-key="fallback-turn-0:0:user">
+    <h4 data-conversation-role="user">You said:</h4>
+    <div data-user-message-bubble="true">{"prompt": true}</div>
+  </div>
+  <div data-content-search-unit-key="fallback-turn-0:2:assistant" data-chatgpt-search-unit-key="fallback-turn-0:2:assistant">
+    <h4 data-conversation-role="assistant">ChatGPT said:</h4>
+    <div>
+      <!-- A nested unit with the same key suffix: only the outermost counts. -->
+      <div data-content-search-unit-key="fallback-turn-0:2:0:assistant">
+        <div data-markdown-text-style="assistant-message"><p>{</p><p>"institution": "UT Austin",</p><p>"degree": "BSc"</p><p>}</p></div>
+      </div>
+    </div>
+  </div>
+</main>
+<form><div id="prompt-textarea" class="ProseMirror" contenteditable="true"><p><br></p></div></form>
+<button type="button" aria-label="Start Voice">Voice</button>
+</body>
+</html>

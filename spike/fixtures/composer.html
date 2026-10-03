@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spike fixture: ChatGPT-like page</title>
+<style>
+  body { font-family: sans-serif; margin: 24px; }
+  #prompt-textarea { border: 1px solid #999; min-height: 60px; max-height: 160px; overflow: auto; padding: 8px; }
+  #chips button { margin: 4px; }
+</style>
+</head>
+<body>
+<!--
+  A stand-in for chatgpt.com that reproduces the behaviours the bridge depends on:
+    - a ProseMirror-style contenteditable composer that only accepts text through
+      paste events;
+    - a paste of 10,000+ characters becomes a "pasted text" chip, not text;
+    - Enter sends; a visible "Stop" button shows while answering;
+    - the reply uses the 2026-09 layout (search unit + markdown body, no role
+      attribute), with an auto-linked e-mail carrying an excluded icon span.
+-->
+<h1>Fixture</h1>
+<p><a id="newtab" href="newtab.html" target="_blank">Open a job (target=_blank)</a></p>
+<p><button id="ask-permission" type="button">Ask notification permission</button>
+   <span id="permission-result">not asked</span></p>
+
+<main id="thread"></main>
+
+<form id="composer-form" onsubmit="return false">
+  <div id="chips"></div>
+  <div id="prompt-textarea" class="ProseMirror" contenteditable="true"><p><br></p></div>
+  <button id="composer-submit-button" type="button" aria-label="Send prompt" disabled>Send</button>
+  <span id="voice"></span>
+</form>
+
+<script>
+(function () {
+  const composer = document.getElementById('prompt-textarea');
+  const send = document.getElementById('composer-submit-button');
+  const chips = document.getElementById('chips');
+  const thread = document.getElementById('thread');
+  const voice = document.getElementById('voice');
+  let doc = '';           // the editor's own document, like ProseMirror's state
+  window.__sent = [];     // what was actually submitted
+
+  function render() {
+    composer.innerHTML = '';
+    const lines = doc.length ? doc.split('\n') : [''];
+    for (const line of lines) {
+      const p = document.createElement('p');
+      if (line) p.textContent = line; else p.appendChild(document.createElement('br'));
+      composer.appendChild(p);
+    }
+    send.disabled = doc.trim().length === 0 && chips.children.length === 0;
+  }
+
+  composer.addEventListener('paste', (event) => {
+    event.preventDefault();
+    const text = event.clipboardData.getData('text/plain');
+    if (text.length >= 10000) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.textContent = 'Pasted text · Show in text field';
+      chips.appendChild(chip);
+    } else {
+      doc += text;
+    }
+    render();
+  });
+
+  // Typing or deleting changes the page first; the editor then syncs its own
+  // document from it, as ProseMirror does.
+  composer.addEventListener('input', () => {
+    doc = Array.from(composer.querySelectorAll('p')).map((p) => p.textContent).join('\n');
+    if (!composer.querySelector('p')) doc = composer.textContent || '';
+    send.disabled = doc.trim().length === 0 && chips.children.length === 0;
+  });
+  window.__docLength = () => doc.length;
+
+  function submit() {
+    if (!doc.trim() && chips.children.length === 0) return;
+    window.__sent.push(doc);
+    const user = document.createElement('div');
+    user.setAttribute('data-content-search-unit-key', 'fallback-turn-' + window.__sent.length + ':0:user');
+    user.innerHTML = '<div data-user-message-bubble="true"></div>';
+    user.firstChild.textContent = doc;
+    thread.appendChild(user);
+    doc = ''; chips.innerHTML = ''; render();
+
+    voice.innerHTML = '<button type="button" aria-label="Stop">Stop</button>';
+    setTimeout(() => {
+      const unit = document.createElement('div');
+      const key = 'fallback-turn-' + window.__sent.length + ':2:assistant';
+      unit.setAttribute('data-content-search-unit-key', key);
+      unit.setAttribute('data-chatgpt-search-unit-key', key);
+      unit.innerHTML =
+        '<h4 data-conversation-role="assistant">ChatGPT said:</h4>' +
+        '<div data-markdown-text-style="assistant-message"><p>' +
+        '<span>{</span><br><span>"ok": true,</span><br><span>"email": "</span>' +
+        '<a href="mailto:a@b.co"><span>a@b.co</span>' +
+        '<span data-markdown-copy="exclude" style="display:inline-block"><svg width="8" height="8"></svg></span></a>' +
+        '<span>",</span><br><span>"received": ' + window.__sent[window.__sent.length - 1].length + '</span><br><span>}</span>' +
+        '</p></div>';
+      thread.appendChild(unit);
+      voice.innerHTML = '<button type="button" aria-label="Start Voice">Voice</button>';
+    }, 900);
+  }
+
+  composer.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit(); }
+  });
+  send.addEventListener('click', submit);
+
+  document.getElementById('ask-permission').addEventListener('click', async () => {
+    const out = document.getElementById('permission-result');
+    try { out.textContent = await Notification.requestPermission(); }
+    catch (error) { out.textContent = 'error'; }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

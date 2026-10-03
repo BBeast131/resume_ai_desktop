@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Technical Writer at Wonka Labs</title>
+</head>
+<body>
+<main>
+  <h1>Technical Writer</h1>
+  <div id="jd" class="job-description">
+    <p>Wonka Labs makes developer tools for confectionery automation. We are hiring a Technical Writer to own our public
+    documentation, from the first tutorial to the API reference, and to make it a reason people choose us.</p>
+    <div id="rest" style="display:none">
+      <h2>Responsibilities</h2>
+      <p>Write and maintain guides, references and release notes. Interview engineers and turn what they know into
+      pages a newcomer can follow. Measure which pages fail readers and fix them. HIDDEN-UNTIL-EXPANDED marker.</p>
+      <h2>Requirements</h2>
+      <p>Four years of technical writing for developers, the ability to read code in at least one language, and
+      experience with docs-as-code workflows.</p>
+    </div>
+    <button id="more" type="button"
+      onclick="document.getElementById('rest').style.display = 'block'; this.textContent = 'Show less'; window.__moreClicks = (window.__moreClicks || 0) + 1">Show more</button>
+  </div>
+  <div class="actions">
+    <a id="apply" href="/apply" onclick="window.__applyClicked = true; return false;">Apply</a>
+    <button id="alljobs" type="button" onclick="window.__otherClicked = true">Show more jobs</button>
+  </div>
+</main>
+<div id="cookie-banner" class="cookie-banner" style="position:fixed;left:0;right:0;bottom:0;height:80px">
+  <p>We use cookies.</p>
+  <button onclick="window.__consentClicked = true">Show more</button>
+  <button onclick="window.__consentClicked = true">Accept</button>
+</div>
+</body>
+</html>
