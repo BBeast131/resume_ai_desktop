@@ -20,10 +20,19 @@ apply_chromium_flags()
 
 import qasync  # noqa: E402
 from PySide6.QtCore import QLockFile, QTimer  # noqa: E402
+from PySide6.QtGui import QIcon  # noqa: E402
 from PySide6.QtWebEngineCore import QWebEngineProfile  # noqa: E402
 from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
 
-from app.config import APP_DISPLAY_NAME, APP_NAME, APP_VERSION, AppConfig, app_data_dir, load_config  # noqa: E402
+from app.config import (  # noqa: E402
+    APP_DISPLAY_NAME,
+    APP_NAME,
+    APP_VERSION,
+    AppConfig,
+    app_data_dir,
+    load_config,
+    resource_path,
+)
 from app.data.db import Database  # noqa: E402
 from app.data.store import Store  # noqa: E402
 from app.services.auth import AuthError, AuthService, UserProfile, load_last_user  # noqa: E402
@@ -223,12 +232,30 @@ class Controller:
         self._release(window)
 
 
+def set_app_icon(app: QApplication) -> None:
+    """The window, taskbar and Alt+Tab icon. A missing file is not worth failing a start over."""
+    if sys.platform == "win32":
+        # Without its own id, Windows groups a run from source under python.exe and shows that icon.
+        try:
+            import ctypes
+
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("ResumeAI.Desktop")
+        except Exception:  # noqa: BLE001 - cosmetic only
+            pass
+    for name in ("icon.ico", "icon.png"):
+        path = resource_path("app", "assets", name)
+        if path.exists():
+            app.setWindowIcon(QIcon(str(path)))
+            return
+
+
 def main() -> int:
     setup_logging()
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setApplicationDisplayName(APP_DISPLAY_NAME)
     app.setApplicationVersion(APP_VERSION)
+    set_app_icon(app)
     apply_theme(app)
 
     # One instance at a time: two would share one browser profile, one rotating sign-in token
