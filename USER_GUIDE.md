@@ -70,11 +70,22 @@ The app never applies to a job for you. Open the job link, apply as usual, then 
 
 Generated / Applied / Shortlisted counts for today, this week or this month (your local time), an activity chart and a status breakdown. Click a card or a legend entry to jump to the matching resumes.
 
+## Applying from the web app (Generated Resumes page)
+
+Open https://beastresumebuilder.vercel.app/generated in Chrome with the MKResumeBuilder extension installed and signed in.
+
+- The page lists only resumes you have **not applied with yet**. Once a resume is marked Applied (or Shortlisted / Rejected) it moves to the **Applications** page, with a small "Desktop" badge.
+- **ChatGPT URL**: Copy. **JD URL**: click the address to copy it ("URL copied").
+- **Apply** (right end of a row): opens the job's application page (the real form when the desktop app found it, otherwise the JD page) in a new tab, with the extension's side panel showing that resume: **Download PDF / DOCX**, **Save Resume**, the ChatGPT link and **Mark as applied**. Fill in the form, then press **Mark as applied**; the row moves to Applications. If the page itself says the application was submitted, the panel offers to mark it for you.
+- **Apply jobs** (next to Import DB): starts with the oldest generated resume, the same way. After you mark it applied, the panel asks "Shall we go ahead with the next job?". **Yes** opens the next one in a new tab; **No** stops. Nothing opens without a Yes.
+- If the side panel does not appear by itself, click the extension's toolbar icon on that tab: the tab already knows which resume it belongs to. If you click through to the form in a new tab, the panel follows.
+- "Not this job: open the generator" in the panel returns that tab to the normal generator.
+
 ## The web app
 
-The same resumes appear on **https://beastresumebuilder.vercel.app/generated** within seconds (sync runs after every generated resume and every status change, and every 30 minutes). Status changes made on the web come back to the desktop at the next sync. The sidebar chip at the bottom shows the sync state; click it for **Sync now** and details.
+The resumes appear on **https://beastresumebuilder.vercel.app/generated** within seconds (sync runs after every generated resume and every status change, and every 30 minutes). Status changes made on the web come back to the desktop at the next sync. The sidebar chip at the bottom shows the sync state; click it for **Sync now** and details.
 
-The Applications page on the web still shows only the extension's applications; desktop ones live on Generated Resumes.
+The Applications page on the web shows the extension's applications plus every desktop resume you have applied with; the ones still waiting are on Generated Resumes.
 
 ## Settings (gear icon)
 
