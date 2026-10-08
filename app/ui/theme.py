@@ -278,6 +278,7 @@ QSplitter::handle:horizontal {{ width: 1px; }}
 
 /* ---- Chips, banners, overlays --------------------------------------------------- */
 #Chip {{ background: {t.subtle}; border: 1px solid {t.border}; border-radius: 10px; padding: 2px 9px; font-size: 12px; color: {t.text_secondary}; }}
+#SharedChip {{ background: {t.primary_soft}; border: 1px solid {t.primary_soft_border}; border-radius: 10px; padding: 2px 9px; font-size: 12px; color: {t.primary}; font-weight: 600; }}
 #AttentionBadge {{ background: {t.warning_soft}; border: 1px solid {t.warning_border}; color: #92400E; border-radius: 10px; padding: 2px 9px; font-size: 12px; font-weight: 600; }}
 #ViewAsBanner {{ background: {t.danger_soft}; border-bottom: 1px solid {t.danger_border}; }}
 #ViewAsBanner QLabel {{ color: {t.danger_hover}; font-weight: 600; background: transparent; }}

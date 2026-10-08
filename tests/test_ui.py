@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QPushButton
+from PySide6.QtWidgets import QApplication, QLabel, QPushButton
 
-from app.data.types import utcnow
+from app.data.types import to_iso, utcnow
 from app.services.auth import AuthError, AuthService, MemoryVault
 from app.services.provider import LocalProvider, RemoteProvider
 from app.sync.engine import SyncStatus
@@ -309,6 +309,81 @@ def test_saved_jobs_table_and_removal(window, ctx, monkeypatch):
     page._remove([page.rows[0]])
     assert ctx.store.saved_job_count() == 1 and page.table.rowCount() == 1
     assert window.nav["saved_jobs"].badge.text() == "1"
+
+
+def test_check_duplicates_button_removes_and_reports(window, ctx):
+    add_resume(ctx.store, 9, company="Globex", role="Platform Engineer")
+    add_job(ctx.store, 1, now=utc(2026, 10, 1), company="Acme", role="Engineer")
+    add_job(ctx.store, 2, now=utc(2026, 10, 2), company="Acme Inc", role="Engineer")
+    add_job(ctx.store, 3, now=utc(2026, 10, 3), company="ACME", role="engineer")
+    add_job(ctx.store, 4, now=utc(2026, 10, 4), company="Globex", role="Platform Engineer")
+    add_job(ctx.store, 5, now=utc(2026, 10, 5), company="Initech", role="Engineer")
+    window.show_page("saved_jobs")
+    page = window.saved_jobs
+    assert page.check_duplicates.isVisible() and page.table.rowCount() == 5
+
+    page.check_duplicates.click()
+
+    assert page.toasts.history[-1] == ("success", "3 duplicate jobs removed (2 already saved, 1 already generated)")
+    assert page.table.rowCount() == 2 and page.count.text() == "2 jobs"
+    assert [page.table.item(row, 1).text() for row in range(2)] == ["Acme", "Initech"]
+    assert window.nav["saved_jobs"].badge.text() == "2"
+
+    page.check_duplicates.click()
+    assert page.toasts.history[-1] == ("info", "No duplicates found")
+    assert page.table.rowCount() == 2
+
+
+def test_check_duplicates_reports_a_single_job_in_the_singular(window, ctx):
+    add_job(ctx.store, 1, now=utc(2026, 10, 1), company="Acme", role="Engineer")
+    add_job(ctx.store, 2, now=utc(2026, 10, 2), company="Acme", role="Engineer")
+    window.show_page("saved_jobs")
+    window.saved_jobs.check_duplicates.click()
+    assert window.saved_jobs.toasts.history[-1] == ("success", "1 duplicate job removed (1 already saved)")
+
+
+def test_check_duplicates_waits_for_a_generation_run(window, ctx):
+    add_job(ctx.store, 1, now=utc(2026, 10, 1), company="Acme", role="Engineer")
+    add_job(ctx.store, 2, now=utc(2026, 10, 2), company="Acme", role="Engineer")
+    window.show_page("saved_jobs")
+    page = window.saved_jobs
+
+    page.set_run_active(True)
+    assert not page.check_duplicates.isEnabled() and "finished" in page.check_duplicates.toolTip()
+    page._check_duplicates()
+    assert ctx.store.saved_job_count() == 2
+
+    page.set_run_active(False)
+    assert page.check_duplicates.isEnabled()
+    page.check_duplicates.click()
+    assert ctx.store.saved_job_count() == 1
+
+
+async def test_jobs_from_the_shared_list_arrive_with_a_shared_chip(window, ctx):
+    ctx.api.pool.push(
+        [
+            {
+                "url": "https://jobright.ai/jobs/info/77",
+                "urlKey": "jobright.ai/jobs/info/77",
+                "sourceSite": "jobright",
+                "role": "Platform Engineer",
+                "company": "Globex",
+                "jdText": None,
+                "foundAt": to_iso(utcnow() - timedelta(days=1)),
+            }
+        ]
+    )
+    window.show_page("saved_jobs")
+    assert window._sync_debounce.isActive()  # opening the page checks the shared list
+    window._sync_debounce.stop()
+    await window.sync_now()
+
+    page = window.saved_jobs
+    assert page.table.rowCount() == 1 and page.table.item(0, 1).text() == "Globex"
+    assert page.table.cellWidget(0, 3).findChild(QLabel, "SharedChip") is not None
+    assert window.toasts.history[-1] == ("info", "1 new job from the shared list added to Saved Jobs")
+    assert window.nav["saved_jobs"].badge.text() == "1"
+    assert window.generator.queue_title.text() == "Job Queue (1)"
 
 
 def test_empty_states_explain_what_to_do(window):

@@ -214,7 +214,9 @@ class Pipeline:
 
     def queue(self) -> list[SavedJob]:
         # Human Check picks jobs needing attention up again; Automation leaves them unless asked.
-        return self.ctx.store.queue(include_attention=self.include_attention or self.mode == "human")
+        # The list is read again before every job, so it is the light one (no job descriptions);
+        # `run` loads the one job it is about to work on in full.
+        return self.ctx.store.queue(include_attention=self.include_attention or self.mode == "human", light=True)
 
     # -- the run ---------------------------------------------------------------------
 
@@ -224,10 +226,13 @@ class Pipeline:
         try:
             while True:
                 self._check()
-                job = next((item for item in self.queue() if item.id not in done), None)
-                if job is None:
+                picked = next((item for item in self.queue() if item.id not in done), None)
+                if picked is None:
                     break
-                done.add(job.id)
+                done.add(picked.id)
+                job = store.get_saved_job(picked.id)
+                if job is None or job.deleted_at is not None:
+                    continue  # removed between the two reads
                 self.host.mark(job.id, "current")
                 record = SkipRecord(job.role or "Unknown role", job.company or "Unknown company", "")
                 try:

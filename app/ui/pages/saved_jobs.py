@@ -131,7 +131,13 @@ class SavedJobsPage(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 20, 24, 20)
         layout.setSpacing(14)
-        layout.addWidget(PageHeader("Saved Jobs", "Jobs saved from JobRight.ai and HiringCafe.com"))
+        self.run_active = False
+        self.check_duplicates = button("Check duplicates", "soft", "copy")
+        self.check_duplicates.clicked.connect(self._check_duplicates)
+        self.check_duplicates.setVisible(not provider.read_only)
+        layout.addWidget(
+            PageHeader("Saved Jobs", "Jobs saved from JobRight.ai and HiringCafe.com", self.check_duplicates)
+        )
 
         toolbar = QHBoxLayout()
         toolbar.setSpacing(10)
@@ -177,6 +183,7 @@ class SavedJobsPage(QWidget):
             else "This user has no saved jobs in their last sync.",
         )
         self.stack.addWidget(self.empty)
+        self._sync_duplicate_button()
         self.refresh()
 
     # -- data ------------------------------------------------------------------------
@@ -207,7 +214,12 @@ class SavedJobsPage(QWidget):
             table.setItem(index, 2, text_item(job.role or "—"))
 
             source = label(SOURCE_LABELS.get(job.source_site, "Other"), "Chip")
-            table.setCellWidget(index, 3, cell(source))
+            if job.shared:
+                shared = label("Shared", "SharedChip")
+                shared.setToolTip("Found by another profile. Your list keeps its own progress on it.")
+                table.setCellWidget(index, 3, cell(source, shared))
+            else:
+                table.setCellWidget(index, 3, cell(source))
 
             if job.attention_reason:
                 reason = job.attention_reason if len(job.attention_reason) <= 34 else job.attention_reason[:33] + "…"
@@ -243,6 +255,36 @@ class SavedJobsPage(QWidget):
         QTimer.singleShot(0, self, lambda: fit_columns(self.table, (1, 2)))
 
     # -- actions ---------------------------------------------------------------------
+
+    def set_run_active(self, active: bool) -> None:
+        """A generation run is working through this list: the duplicate check waits for it."""
+        self.run_active = active
+        self._sync_duplicate_button()
+
+    def _sync_duplicate_button(self) -> None:
+        self.check_duplicates.setEnabled(not self.run_active)
+        self.check_duplicates.setToolTip(
+            "Available when the generation run has finished"
+            if self.run_active
+            else "Remove saved jobs that are the same job as an older saved one, or that already have a resume"
+        )
+
+    def _check_duplicates(self) -> None:
+        if self.provider.read_only or self.run_active:
+            return
+        report = self.ctx.store.remove_duplicate_saved_jobs()
+        if report.removed == 0:
+            self.toasts.show("No duplicates found", "info")
+            return
+        parts = []
+        if report.same_as_saved:
+            parts.append(f"{report.same_as_saved} already saved")
+        if report.already_generated:
+            parts.append(f"{report.already_generated} already generated")
+        plural = "s" if report.removed != 1 else ""
+        self.toasts.show(f"{report.removed} duplicate job{plural} removed ({', '.join(parts)})", "success")
+        self.ctx.changed("jobs")
+        self.refresh()
 
     def _copy(self, url: str, widget: QWidget) -> None:
         QGuiApplication.clipboard().setText(url)

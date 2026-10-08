@@ -490,6 +490,10 @@ class GeneratorPage(QWidget):
     def running(self) -> bool:
         return self.run_task is not None and not self.run_task.done()
 
+    def jobs_changed(self) -> None:
+        """Saved jobs arrived from outside this page (the shared list)."""
+        self._on_changed("jobs")
+
     def _on_changed(self, kind: str) -> None:
         if kind == "jobs":
             if self.running:
@@ -499,7 +503,7 @@ class GeneratorPage(QWidget):
         self._sync_controls()
 
     def _append_new_jobs(self) -> None:
-        jobs = self.ctx.store.list_saved_jobs()
+        jobs = self.ctx.store.list_saved_jobs(light=True)
         for job in jobs:
             if job.id not in self.queue_items:
                 self._add_queue_item(job)
@@ -519,7 +523,7 @@ class GeneratorPage(QWidget):
         self._sync_controls()
 
     def refresh_queue(self) -> None:
-        jobs = self.ctx.store.list_saved_jobs()
+        jobs = self.ctx.store.list_saved_jobs(light=True)
         self.queue.clear()
         self.queue_items.clear()
         for job in jobs:

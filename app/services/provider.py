@@ -53,6 +53,8 @@ class JobRow:
     company: str
     attention_reason: str | None
     created_at: datetime
+    #: Found by another profile and taken from the shared list.
+    shared: bool = False
 
 
 def resume_row(resume: GeneratedResume, *, light: bool = False) -> ResumeRow:
@@ -87,6 +89,7 @@ def job_row(job: SavedJob) -> JobRow:
         company=job.company or "",
         attention_reason=job.attention_reason,
         created_at=job.created_at,
+        shared=bool(job.shared),
     )
 
 
@@ -116,7 +119,7 @@ class LocalProvider:
         return [
             job_row(item)
             for item in self.store.list_saved_jobs(
-                search=search, newest_first=newest_first, attention_only=attention_only
+                search=search, newest_first=newest_first, attention_only=attention_only, light=True
             )
         ]
 

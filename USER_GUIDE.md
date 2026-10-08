@@ -37,6 +37,21 @@ You can keep browsing and clicking; nothing else is needed. Jobs open in tabs in
 
 The list of everything waiting to be generated, oldest first. Search, sort, tick rows and **Remove selected** for the ones you don't want. A **Needs attention** badge means the page could not be read automatically (sign-in wall, consent page, "verify you are human", error); open it in Job Search, fix it, and it will be retried on the next run.
 
+**Check duplicates** (top right) cleans the list before you generate. It removes a saved job when
+
+- the same company and role is already in the list (the oldest copy is kept, the later ones go), or
+- a resume was already generated for that company and role.
+
+"Same" ignores capitals, punctuation, "Inc"/"LLC" and notes such as "(Remote)", and reads "Sr." as "Senior"; "Senior Engineer" and "Engineer" at one company stay two jobs. A job with no company or role is never removed. When it finishes, a small message says how many went, for example **3 duplicate jobs removed (2 already saved, 1 already generated)**, or **No duplicates found**. The button is greyed out while a generation run is working. It takes well under a second even with 20,000 saved jobs.
+
+**Shared job list (several profiles).** Every job a profile saves is also put on a shared list on the web app, and every other profile picks those jobs up into its own Saved Jobs: at each sync, and a moment after you open Saved Jobs or Resume Generating. A small message says how many arrived, and those rows carry a blue **Shared** chip. Each profile keeps its own progress:
+
+- A job you already made a resume for in this profile (same link, or same company and role) is not added.
+- **Remove** and **Check duplicates** only affect the profile you are in; a job you removed does not come back.
+- When one profile makes a resume for a job, the job disappears only from that profile's list.
+- Shared jobs keep the time they were first found, so every profile still generates oldest first.
+- A profile reading the shared list for the first time gets the jobs found in the last 14 days.
+
 ### 3. Generate resumes (Resume Generating tab)
 
 Press **Start** and choose a mode:
@@ -79,6 +94,7 @@ Open https://beastresumebuilder.vercel.app/generated in Chrome with the MKResume
 - **Apply** (right end of a row): opens the job's application page (the real form when the desktop app found it, otherwise the JD page) in a new tab, with the extension's side panel showing that resume: **Download PDF / DOCX**, **Save Resume**, the ChatGPT link and **Mark as applied**. Fill in the form, then press **Mark as applied**; the row moves to Applications. If the page itself says the application was submitted, the panel offers to mark it for you.
 - **Apply jobs** (next to Import DB): starts with the oldest generated resume, the same way. After you mark it applied, the panel asks "Shall we go ahead with the next job?". **Yes** opens the next one in a new tab; **No** stops. Nothing opens without a Yes.
 - If the side panel does not appear by itself, click the extension's toolbar icon on that tab: the tab already knows which resume it belongs to. If you click through to the form in a new tab, the panel follows.
+- The panel also checks your application history for this job (the same link, its apply link, or the same company and role). When you already applied to it, it shows a red **You already applied to this job** with the date, and a **Remove & next job** button: it deletes this generated resume (the desktop app drops its copy at the next sync), closes the tab and opens the next generated resume. A similar but not identical role shows a yellow warning instead.
 - "Not this job: open the generator" in the panel returns that tab to the normal generator.
 
 ## The web app

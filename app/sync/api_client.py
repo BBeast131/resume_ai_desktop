@@ -164,6 +164,17 @@ class WebApi:
             params["since"] = since
         return dict(await self._json("GET", "/api/desktop/sync", params=params) or {})
 
+    # -- the shared job list (every profile's finds) ----------------------------
+
+    async def public_jobs_push(self, jobs: list[dict[str, Any]]) -> dict[str, Any]:
+        return dict(await self._json("POST", "/api/desktop/public-jobs", json={"jobs": jobs}) or {})
+
+    async def public_jobs_pull(self, *, after: int, since: str | None = None, limit: int = 50) -> dict[str, Any]:
+        params: dict[str, Any] = {"after": after, "limit": limit}
+        if since:
+            params["since"] = since
+        return dict(await self._json("GET", "/api/desktop/public-jobs", params=params) or {})
+
     # -- admin (read-only; the server checks the role again) ---------------------
 
     async def admin_users(self, search: str = "", page: int = 1, page_size: int = 100) -> dict[str, Any]:

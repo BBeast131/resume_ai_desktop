@@ -4,6 +4,11 @@ Push sends every dirty row (generated resumes and saved jobs, removals
 included) in batches. Pull brings back what changed on the web: in practice,
 a status changed on the Generated Resumes page, or a record deleted there.
 
+Then the shared job list: the jobs this profile found go on it, and the jobs
+other profiles found come into this profile's own saved list (see
+`Store.import_shared_jobs`). That step is best effort: when it fails, the sync
+itself still counts as done and the next one tries again.
+
 It never blocks the UI: it is plain asyncio and the database calls are short.
 It works after days offline: dirty rows simply wait, and the pull cursor picks
 up where it stopped.
@@ -16,7 +21,7 @@ import json
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Literal
 
 from app.config import SCHEMA_VERSION
@@ -36,6 +41,13 @@ BATCH_MAX_BYTES = 2_500_000
 BACKOFF_SECONDS = (60, 120, 300, 900)
 PULL_PAGE_SLIM = 100
 PULL_PAGE_FULL = 25
+#: The shared job list: jobs per request either way.
+SHARED_PAGE = 50
+#: A job that already left this profile's list is shared only if found this recently,
+#: and a profile's first read of the shared list starts this far back.
+SHARED_HISTORY = timedelta(days=14)
+SHARED_ROLE_MAX = 160
+SHARED_JD_MAX = 30_000
 
 
 @dataclass(frozen=True)
@@ -89,6 +101,18 @@ def saved_job_payload(job: SavedJob) -> dict[str, Any]:
     }
 
 
+def public_job_payload(job: SavedJob) -> dict[str, Any]:
+    return {
+        "url": job.url,
+        "urlKey": job.url_key,
+        "sourceSite": job.source_site,
+        "role": job.role[:SHARED_ROLE_MAX] if job.role else None,
+        "company": job.company[:SHARED_ROLE_MAX] if job.company else None,
+        "jdText": job.jd_text[:SHARED_JD_MAX] if job.jd_text else None,
+        "foundAt": to_iso(job.created_at),
+    }
+
+
 def plan_batches(
     rows: list[dict[str, Any]], max_rows: int = BATCH_MAX_ROWS, max_bytes: int = BATCH_MAX_BYTES
 ) -> list[list[dict[str, Any]]]:
@@ -115,6 +139,8 @@ class SyncEngine:
         self.on_change = on_change
         #: Called when a pull changed local rows, so open pages can refresh.
         self.on_data_changed: Callable[[], None] | None = None
+        #: Called with how many jobs came in from the shared list.
+        self.on_jobs_shared: Callable[[int], None] | None = None
         self._lock = asyncio.Lock()
         self._failures = 0
         self._again = False
@@ -188,11 +214,17 @@ class SyncEngine:
                     self._publish(self._read_status("error", error.message))
                     return self.status
 
+                shared = await self._share()
+                if shared:
+                    self._again = True  # push the new saved jobs straight away
+
                 self._failures = 0
                 self.last_error_code = None
                 self.store.update_sync_state(last_error=None)
                 if changed and self.on_data_changed is not None:
                     self.on_data_changed()
+                if shared and self.on_jobs_shared is not None:
+                    self.on_jobs_shared(shared)
                 if not self._again:
                     break
 
@@ -271,3 +303,54 @@ class SyncEngine:
             if not result.get("hasMore"):
                 break
         return changed
+
+    # -- the shared job list ------------------------------------------------------
+
+    async def _share(self) -> int:
+        """Publish this profile's finds, then take in everyone else's. Returns jobs added here."""
+        try:
+            await self._publish_jobs()
+            return await self._pull_shared()
+        except ApiError as error:
+            # An older web app without the shared list answers 404; offline just waits.
+            log.warning("shared_jobs.skipped code=%s status=%s", error.code, error.status)
+            return 0
+
+    async def _publish_jobs(self) -> None:
+        since = utcnow() - SHARED_HISTORY
+        for _batch in range(200):
+            jobs = self.store.unpublished_jobs(since=since, limit=SHARED_PAGE)
+            if not jobs:
+                return
+            result = await self.api.public_jobs_push([public_job_payload(job) for job in jobs])
+            # A row the server refused will never be accepted: it is not retried either.
+            self.store.mark_published([job.id for job in jobs])
+            log.info(
+                "shared_jobs.published sent=%d added=%s rejected=%s",
+                len(jobs),
+                result.get("added"),
+                result.get("rejected"),
+            )
+
+    async def _pull_shared(self) -> int:
+        cursor = self.store.sync_state().shared_cursor
+        since = None
+        if cursor is None:
+            cursor = 0
+            since = to_iso(utcnow() - SHARED_HISTORY)
+        context = self.store.shared_import_context()
+        added = 0
+        for _page in range(400):
+            result = await self.api.public_jobs_pull(after=cursor, since=since, limit=SHARED_PAGE)
+            jobs = [item for item in (result.get("jobs") or []) if isinstance(item, dict)]
+            added += self.store.import_shared_jobs(jobs, context)
+            try:
+                cursor = max(cursor, int(result.get("cursor") or cursor))
+            except (TypeError, ValueError):
+                break
+            self.store.update_sync_state(shared_cursor=cursor)
+            if not result.get("more") or not jobs:
+                break
+        if added:
+            log.info("shared_jobs.imported added=%d", added)
+        return added

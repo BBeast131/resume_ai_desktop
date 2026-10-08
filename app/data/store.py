@@ -12,11 +12,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Literal
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, insert, or_, select, update
 from sqlalchemy.orm import defer
 
 from app.data.db import Database
 from app.data.models import (
+    SOURCE_SITES,
     STATUSES,
     SUBMITTED_STATUSES,
     GeneratedResume,
@@ -26,7 +27,8 @@ from app.data.models import (
     SyncState,
     UserAssets,
 )
-from app.data.types import from_iso, utcnow
+from app.data.types import from_iso, new_id, utcnow
+from app.services.dedupe import job_key
 
 SaveOutcome = Literal["saved", "restored", "duplicate_saved", "duplicate_generated"]
 DateField = Literal["created_at", "applied_at", "shortlisted_at", "rejected_at"]
@@ -113,6 +115,38 @@ def _parse(value: Any) -> datetime | None:
         return None
 
 
+def _parse_time(value: Any) -> datetime | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        return from_iso(value)
+    except ValueError:
+        return None
+
+
+@dataclass
+class SharedImportContext:
+    """This profile's resumes and saved jobs, as keys, for one pull of the shared list."""
+
+    generated_urls: set[str]
+    generated_keys: set[str]
+    saved_keys: set[str]
+
+
+@dataclass(frozen=True)
+class DuplicateReport:
+    """What a duplicate check did."""
+
+    #: Saved jobs looked at.
+    examined: int
+    #: Saved jobs taken out of the list.
+    removed: int
+    #: ...of which a resume had already been generated for the job.
+    already_generated: int
+    #: ...of which an older saved job was the same job.
+    same_as_saved: int
+
+
 class Store:
     def __init__(self, database: Database) -> None:
         self.database = database
@@ -157,6 +191,7 @@ class Store:
                 existing.created_at = at
                 existing.updated_at = at
                 existing.dirty = True
+                existing.shared = False  # this profile found it itself this time
                 return SaveResult("restored", existing)
 
             job = SavedJob(
@@ -175,10 +210,15 @@ class Store:
             return SaveResult("saved", job)
 
     def list_saved_jobs(
-        self, *, search: str = "", newest_first: bool = False, attention_only: bool = False
+        self, *, search: str = "", newest_first: bool = False, attention_only: bool = False, light: bool = False
     ) -> list[SavedJob]:
+        """The saved jobs. With `light`, the stored job description is not loaded (and must not
+        be read from the returned rows): tables and the queue list only show company and role, and
+        with thousands of saved jobs the descriptions are most of the data."""
         with self.database.session() as session:
             query = select(SavedJob).where(SavedJob.deleted_at.is_(None))
+            if light:
+                query = query.options(defer(SavedJob.jd_text))
             term = search.strip()
             if term:
                 like = f"%{term}%"
@@ -188,9 +228,9 @@ class Store:
             order = SavedJob.created_at.desc() if newest_first else SavedJob.created_at.asc()
             return list(session.scalars(query.order_by(order, SavedJob.id)))
 
-    def queue(self, *, include_attention: bool) -> list[SavedJob]:
+    def queue(self, *, include_attention: bool, light: bool = False) -> list[SavedJob]:
         """The jobs a run will process, oldest first."""
-        jobs = self.list_saved_jobs()
+        jobs = self.list_saved_jobs(light=light)
         return jobs if include_attention else [job for job in jobs if not job.attention_reason]
 
     def saved_job_count(self) -> int:
@@ -226,6 +266,188 @@ class Store:
                     job.dirty = True
                     removed += 1
         return removed
+
+    def remove_duplicate_saved_jobs(self, now: datetime | None = None) -> DuplicateReport:
+        """Take every duplicate out of the saved list, in one pass and one transaction.
+
+        A saved job is a duplicate when its company and role (see `app.services.dedupe`) match
+
+        * a resume that was already generated, or
+        * an older saved job: the oldest copy stays, the later ones go.
+
+        Built to stay quick as the list grows. It reads four short columns per saved job and
+        two per resume (never a job description or a resume), walks them once with a set, and
+        writes the result with a few bulk statements, so the work grows in step with the number
+        of rows rather than with its square. Each removed job is written to the skipped log.
+        """
+        at = now or utcnow()
+        with self.database.session() as session:
+            seen: set[str] = set()
+            for done_company, done_role in session.execute(
+                select(GeneratedResume.company, GeneratedResume.role).where(GeneratedResume.deleted_at.is_(None))
+            ):
+                done_key = job_key(done_company, done_role)
+                if done_key is not None:
+                    seen.add(done_key)
+            generated = frozenset(seen)
+
+            examined = 0
+            remove_ids: list[str] = []
+            skips: list[dict[str, Any]] = []
+            already_generated = 0
+            for job_id, url, company, role in session.execute(
+                select(SavedJob.id, SavedJob.url, SavedJob.company, SavedJob.role)
+                .where(SavedJob.deleted_at.is_(None))
+                .order_by(SavedJob.created_at, SavedJob.id)
+            ):
+                examined += 1
+                key = job_key(company, role)
+                if key is None:
+                    continue
+                if key not in seen:
+                    seen.add(key)
+                    continue
+                was_generated = key in generated
+                already_generated += was_generated
+                remove_ids.append(job_id)
+                skips.append(
+                    {
+                        "id": new_id(),
+                        "url": url,
+                        "role": role,
+                        "company": company,
+                        "reason": "duplicate",
+                        "detail": "A resume was already generated for this job"
+                        if was_generated
+                        else "The same job is already in the saved list",
+                        "created_at": at,
+                    }
+                )
+
+            # SQLite caps the number of bound values in one statement; 500 ids is well inside it.
+            for start in range(0, len(remove_ids), 500):
+                chunk = remove_ids[start : start + 500]
+                session.execute(
+                    update(SavedJob).where(SavedJob.id.in_(chunk)).values(deleted_at=at, updated_at=at, dirty=True)
+                )
+                session.execute(insert(SkippedJob), skips[start : start + 500])
+
+        return DuplicateReport(
+            examined=examined,
+            removed=len(remove_ids),
+            already_generated=already_generated,
+            same_as_saved=len(remove_ids) - already_generated,
+        )
+
+    # ------------------------------------------------------------------
+    # The shared job list (every profile's finds, one copy each on the web)
+    # ------------------------------------------------------------------
+
+    def unpublished_jobs(self, *, since: datetime, limit: int) -> list[SavedJob]:
+        """Jobs this profile found that are not on the shared list yet, oldest first.
+
+        Jobs still in the list are always shared. A job that already left it (a resume was
+        made, or it was removed) is shared only when it was found after `since`: a long
+        history of old finds is not pushed onto everyone's list.
+        """
+        with self.database.session() as session:
+            return list(
+                session.scalars(
+                    select(SavedJob)
+                    .where(
+                        SavedJob.published_at.is_(None),
+                        or_(SavedJob.deleted_at.is_(None), SavedJob.created_at >= since),
+                    )
+                    .order_by(SavedJob.created_at, SavedJob.id)
+                    .limit(limit)
+                )
+            )
+
+    def mark_published(self, ids: Sequence[str], now: datetime | None = None) -> None:
+        """Remember that these jobs are on the shared list. Not a local change: nothing to sync."""
+        if not ids:
+            return
+        at = now or utcnow()
+        with self.database.session() as session:
+            session.execute(update(SavedJob).where(SavedJob.id.in_(list(ids))).values(published_at=at))
+
+    def shared_import_context(self) -> SharedImportContext:
+        """What this profile already knows, read once per pull (short columns only)."""
+        with self.database.session() as session:
+            generated_keys: set[str] = set()
+            generated_urls: set[str] = set()
+            for company, role, key in session.execute(
+                select(GeneratedResume.company, GeneratedResume.role, GeneratedResume.url_key).where(
+                    GeneratedResume.deleted_at.is_(None)
+                )
+            ):
+                identity = job_key(company, role)
+                if identity is not None:
+                    generated_keys.add(identity)
+                if key:
+                    generated_urls.add(key)
+            saved_keys: set[str] = set()
+            for saved_company, saved_role in session.execute(
+                select(SavedJob.company, SavedJob.role).where(SavedJob.deleted_at.is_(None))
+            ):
+                saved_identity = job_key(saved_company, saved_role)
+                if saved_identity is not None:
+                    saved_keys.add(saved_identity)
+        return SharedImportContext(generated_urls, generated_keys, saved_keys)
+
+    def import_shared_jobs(
+        self, jobs: Sequence[dict[str, Any]], context: SharedImportContext, now: datetime | None = None
+    ) -> int:
+        """Add jobs from the shared list to this profile's own list. Returns how many were added.
+
+        A job is left out when this profile already has it in any state (in the list,
+        removed, or turned into a resume: removals are this profile's own choice and stay),
+        or when it already has a resume or a saved job for the same company and role.
+        Each added job keeps the time it was first found, so the queue stays oldest first.
+        """
+        at = now or utcnow()
+        candidates: dict[str, dict[str, Any]] = {}
+        for job in jobs:
+            key = str(job.get("urlKey") or "").strip()
+            url = str(job.get("url") or "").strip()
+            found = _parse_time(job.get("foundAt"))
+            if not key or not url or found is None or key in candidates:
+                continue
+            candidates[key] = {**job, "urlKey": key, "url": url, "foundAt": found}
+        if not candidates:
+            return 0
+
+        with self.database.session() as session:
+            known = set(session.scalars(select(SavedJob.url_key).where(SavedJob.url_key.in_(list(candidates)))))
+            rows: list[dict[str, Any]] = []
+            for key, job in candidates.items():
+                if key in known or key in context.generated_urls:
+                    continue
+                identity = job_key(job.get("company"), job.get("role"))
+                if identity is not None and (identity in context.generated_keys or identity in context.saved_keys):
+                    continue
+                if identity is not None:
+                    context.saved_keys.add(identity)
+                site = job.get("sourceSite")
+                rows.append(
+                    {
+                        "id": new_id(),
+                        "source_site": site if site in SOURCE_SITES else "other",
+                        "url": job["url"],
+                        "url_key": key,
+                        "role": job.get("role") or None,
+                        "company": job.get("company") or None,
+                        "jd_text": job.get("jdText") or None,
+                        "created_at": job["foundAt"],
+                        "updated_at": at,
+                        "dirty": True,
+                        "published_at": at,
+                        "shared": True,
+                    }
+                )
+            if rows:
+                session.execute(insert(SavedJob), rows)
+        return len(rows)
 
     def set_attention(self, job_id: str, reason: str | None, now: datetime | None = None) -> None:
         """Set a job aside ("page needs sign-in"), or clear the flag with `None`."""

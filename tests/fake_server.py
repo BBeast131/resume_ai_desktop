@@ -13,8 +13,46 @@ from typing import Any
 from app.sync.api_client import ApiError, OfflineError
 
 
-class FakeServer:
+class SharedPool:
+    """The web app's shared job list, shared by every FakeServer (account) given it."""
+
     def __init__(self) -> None:
+        self.rows: list[dict[str, Any]] = []
+        self.push_calls: list[list[dict[str, Any]]] = []
+        self.pull_calls: list[dict[str, Any]] = []
+        self.missing = False  # an older web app without the endpoint
+
+    def push(self, jobs: list[dict[str, Any]]) -> dict[str, Any]:
+        if self.missing:
+            raise ApiError("Not found", "NOT_FOUND", 404)
+        assert len(jobs) <= 50
+        self.push_calls.append(jobs)
+        known = {row["urlKey"] for row in self.rows}
+        added = 0
+        for job in jobs:
+            if job["urlKey"] in known:
+                continue
+            known.add(job["urlKey"])
+            self.rows.append({**job, "_seq": len(self.rows) + 1})
+            added += 1
+        return {"received": len(jobs), "added": added, "rejected": 0}
+
+    def pull(self, after: int, since: str | None, limit: int) -> dict[str, Any]:
+        if self.missing:
+            raise ApiError("Not found", "NOT_FOUND", 404)
+        self.pull_calls.append({"after": after, "since": since, "limit": limit})
+        rows = [row for row in self.rows if row["_seq"] > after and (since is None or row["foundAt"] >= since)]
+        page = rows[:limit]
+        return {
+            "jobs": [{k: v for k, v in row.items() if not k.startswith("_")} for row in page],
+            "cursor": page[-1]["_seq"] if page else after,
+            "more": len(rows) > limit,
+        }
+
+
+class FakeServer:
+    def __init__(self, pool: SharedPool | None = None) -> None:
+        self.pool = pool or SharedPool()
         self.resumes: dict[str, dict[str, Any]] = {}
         self.saved_jobs: dict[str, dict[str, Any]] = {}
         self.tombstones: dict[str, int] = {}
@@ -113,6 +151,14 @@ class FakeServer:
             "hasMore": len(rows) > limit,
             "serverTime": "now",
         }
+
+    async def public_jobs_push(self, jobs: list[dict[str, Any]]) -> dict[str, Any]:
+        self._check()
+        return self.pool.push(jobs)
+
+    async def public_jobs_pull(self, *, after: int, since: str | None = None, limit: int = 50) -> dict[str, Any]:
+        self._check()
+        return self.pool.pull(after, since, limit)
 
     # -- what a person does on the web page ---------------------------------------
 

@@ -44,6 +44,8 @@ NAV = [
 #: Pages that exist in the read-only "view as" mode.
 VIEWABLE = ("dashboard", "saved_jobs", "generated")
 SYNC_DEBOUNCE_MS = 1500
+#: Opening Saved Jobs or the generator checks the shared list soon after.
+SHARED_REFRESH_MS = 800
 
 
 class NavItem(QPushButton):
@@ -305,6 +307,7 @@ class MainWindow(QMainWindow):
 
         ctx.sync.on_change = self._sync_changed
         ctx.sync.on_data_changed = self._remote_changed
+        ctx.sync.on_jobs_shared = self._jobs_shared
         ctx.listeners.append(self._local_changed)
 
         self.set_admin(ctx.user.is_admin)
@@ -362,6 +365,7 @@ class MainWindow(QMainWindow):
 
     def _running_changed(self, running: bool) -> None:
         self.nav["generator"].running.setVisible(running)
+        self.saved_jobs.set_run_active(running)
 
     # ------------------------------------------------------------------
     # Navigation
@@ -393,6 +397,8 @@ class MainWindow(QMainWindow):
         refresh = getattr(page, "refresh", None)
         if callable(refresh) and key != "generator":
             refresh()
+        if key in ("saved_jobs", "generator") and not self.viewing:
+            self.request_sync(SHARED_REFRESH_MS)  # pick up what other profiles found meanwhile
 
     def open_generated(self, filters: ResumeFilter, description: str) -> None:
         page = self.view_pages["generated"] if self.viewing else self.generated
@@ -518,6 +524,16 @@ class MainWindow(QMainWindow):
             if callable(refresh) and self.current_key != "generator":
                 refresh()
 
+    def _jobs_shared(self, count: int) -> None:
+        """Jobs other profiles found arrived in this profile's saved list."""
+        self.refresh_badges()
+        self.toasts.show(f"{count} new job{'s' if count != 1 else ''} from the shared list added to Saved Jobs", "info")
+        if self.viewing:
+            return
+        self.generator.jobs_changed()  # a running generator takes them on; an idle one redraws its queue
+        if self.current_key == "saved_jobs":
+            self.saved_jobs.refresh()
+
     def _local_changed(self, kind: str) -> None:
         if kind == "settings":
             self._apply_sync_interval()
@@ -564,6 +580,7 @@ class MainWindow(QMainWindow):
             timer.stop()
         self.ctx.sync.on_change = None
         self.ctx.sync.on_data_changed = None
+        self.ctx.sync.on_jobs_shared = None
         self.ctx.listeners.clear()
 
     def closeEvent(self, event: Any) -> None:  # noqa: N802

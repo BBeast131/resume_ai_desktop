@@ -25,6 +25,7 @@ SKIP_REASONS = (
     "extraction_failed",
     "chatgpt_failed",
     "invalid_json",
+    "duplicate",
 )
 
 
@@ -64,6 +65,10 @@ class SavedJob(Base):
     dirty: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     #: Why the server refused the row, in plain words; empty when accepted.
     sync_error: Mapped[str | None] = mapped_column(Text)
+    #: When the job went on the shared list (or arrived from it); empty = not shared yet.
+    published_at: Mapped[datetime | None] = mapped_column(UtcIso)
+    #: Found by another profile and taken from the shared list.
+    shared: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     __table_args__ = (Index("saved_jobs_created_idx", "created_at"),)
 
@@ -157,5 +162,7 @@ class SyncState(Base):
     last_pull_at: Mapped[datetime | None] = mapped_column(UtcIso)
     last_error: Mapped[str | None] = mapped_column(Text)
     server_cursor: Mapped[str | None] = mapped_column(Text)
+    #: How far the shared job list has been read (the server's sequence number).
+    shared_cursor: Mapped[int | None] = mapped_column(Integer)
 
     __table_args__ = (CheckConstraint("id = 1", name="sync_state_single_row"),)
