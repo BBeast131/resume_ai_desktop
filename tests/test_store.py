@@ -61,6 +61,20 @@ def test_removal_is_a_soft_delete_that_syncs(tmp_path):
     assert store.saved_job_count() == 1
 
 
+def test_removing_many_saved_jobs_at_once(tmp_path):
+    store = make_store(tmp_path)
+    jobs = [add_job(store, n).job for n in range(1, 1206)]
+    keep = jobs[-1]
+    ids = [job.id for job in jobs[:-1]]
+    # Repeats, unknown ids and an already-removed job do not count.
+    store.remove_saved_jobs([ids[0]])
+    assert store.remove_saved_jobs([*ids, ids[5], "no-such-id"]) == 1203
+    assert store.saved_job_count() == 1 and store.list_saved_jobs()[0].id == keep.id
+    removed = store.get_saved_job(ids[700])
+    assert removed.deleted_at is not None and removed.dirty is True
+    assert store.remove_saved_jobs([]) == 0
+
+
 def test_saving_a_resume_removes_its_job_in_one_transaction(tmp_path):
     store = make_store(tmp_path)
     job = add_job(store, 1).job

@@ -10,9 +10,10 @@ import json
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from sqlalchemy import func, insert, or_, select, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import defer
 
 from app.data.db import Database
@@ -255,16 +256,24 @@ class Store:
             return session.get(SavedJob, job_id)
 
     def remove_saved_jobs(self, job_ids: Iterable[str], now: datetime | None = None) -> int:
+        """Soft-delete these saved jobs (sync carries the removal). Bulk, in chunks, so removing
+        hundreds at once stays a handful of statements. Returns how many were live."""
         at = now or utcnow()
+        ids = list(dict.fromkeys(str(job_id) for job_id in job_ids))
         removed = 0
         with self.database.session() as session:
-            for job_id in job_ids:
-                job = session.get(SavedJob, job_id)
-                if job is not None and job.deleted_at is None:
-                    job.deleted_at = at
-                    job.updated_at = at
-                    job.dirty = True
-                    removed += 1
+            for start in range(0, len(ids), 500):
+                chunk = ids[start : start + 500]
+                result = cast(
+                    CursorResult[Any],
+                    session.execute(
+                        update(SavedJob)
+                        .where(SavedJob.id.in_(chunk), SavedJob.deleted_at.is_(None))
+                        .values(deleted_at=at, updated_at=at, dirty=True)
+                        .execution_options(synchronize_session=False)
+                    ),
+                )
+                removed += result.rowcount or 0
         return removed
 
     def remove_duplicate_saved_jobs(self, now: datetime | None = None) -> DuplicateReport:

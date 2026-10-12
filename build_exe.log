@@ -1,13 +1,13 @@
-== Thu 10/08/2026  1:25:53.09 
+== Mon 10/12/2026  0:03:56.73 
 -- uv sync 
-Resolved 52 packages in 1ms
-Checked 45 packages in 260ms
+Resolved 52 packages in 16ms
+Checked 45 packages in 251ms
 -- pyinstaller 
-421 INFO: PyInstaller: 6.22.3, contrib hooks: 2026.8
-421 INFO: Python: 3.12.15
-490 INFO: Platform: Windows-11-10.0.26200-SP0
-490 INFO: Python environment: E:\Projects\Resume_generator_New\resume_ai_desktop\.venv
-532 INFO: Module search paths (PYTHONPATH):
+481 INFO: PyInstaller: 6.22.3, contrib hooks: 2026.8
+481 INFO: Python: 3.12.15
+531 INFO: Platform: Windows-11-10.0.26200-SP0
+531 INFO: Python environment: E:\Projects\Resume_generator_New\resume_ai_desktop\.venv
+571 INFO: Module search paths (PYTHONPATH):
 ['E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Scripts\\pyinstaller.exe',
  'C:\\Users\\WangYushi\\AppData\\Roaming\\uv\\python\\cpython-3.12-windows-x86_64-none\\python312.zip',
  'C:\\Users\\WangYushi\\AppData\\Roaming\\uv\\python\\cpython-3.12-windows-x86_64-none\\DLLs',
@@ -16,148 +16,148 @@ Checked 45 packages in 260ms
  'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv',
  'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages',
  'E:\\Projects\\Resume_generator_New\\resume_ai_desktop']
-1009 INFO: Appending 'datas' from .spec
-1010 INFO: checking Analysis
-1080 INFO: Building because excludes changed
-1080 INFO: Looking for Python shared library...
-1080 INFO: Using Python shared library: C:\Users\WangYushi\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\python312.dll
-1080 INFO: Running Analysis Analysis-00.toc
-1080 INFO: Target bytecode optimization level: 0
-1080 INFO: Initializing module dependency graph...
-1082 INFO: Initializing module graph hook caches...
-1113 INFO: Analyzing modules for base_library.zip ...
-2485 INFO: Processing standard module hook 'hook-heapq.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-2619 INFO: Processing standard module hook 'hook-encodings.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-4775 INFO: Processing standard module hook 'hook-math.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-5138 INFO: Processing standard module hook 'hook-pickle.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-8518 INFO: Caching module dependency graph...
-8541 INFO: Analyzing E:\Projects\Resume_generator_New\resume_ai_desktop\app\main.py
-8796 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-9079 INFO: Processing standard module hook 'hook-xml.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-9486 INFO: Processing standard module hook 'hook-_ctypes.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-10133 INFO: Processing standard module hook 'hook-PySide6.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-10776 INFO: Processing standard module hook 'hook-shiboken6.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-10887 INFO: Processing standard module hook 'hook-PySide6.QtNetwork.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-12617 INFO: Processing standard module hook 'hook-PySide6.QtCore.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-14208 INFO: Processing standard module hook 'hook-PySide6.QtWebEngineCore.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-16048 INFO: Processing standard module hook 'hook-PySide6.QtGui.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-25471 INFO: Processing standard module hook 'hook-PySide6.QtWebChannel.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-26307 INFO: Processing standard module hook 'hook-PySide6.QtWidgets.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-28476 INFO: Processing standard module hook 'hook-sqlalchemy.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-29626 INFO: Processing standard module hook 'hook-platform.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-29648 INFO: Processing standard module hook 'hook-sysconfig.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-30172 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-30174 INFO: SetuptoolsInfo: initializing cached setuptools info...
-35649 INFO: Processing pre-safe-import-module hook 'hook-tomli.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-35650 INFO: Setuptools: 'tomli' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.tomli'!
-35661 INFO: Processing standard module hook 'hook-setuptools.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-35696 INFO: Processing pre-safe-import-module hook 'hook-distutils.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-35822 INFO: Processing pre-safe-import-module hook 'hook-jaraco.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-35823 INFO: Setuptools: 'jaraco' appears to be a partial setuptools-vendored copy - extending search paths to ['E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\jaraco', 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\setuptools\\_vendor\\jaraco']!
-35823 INFO: Processing pre-safe-import-module hook 'hook-jaraco.functools.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-35840 INFO: Processing pre-safe-import-module hook 'hook-more_itertools.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-36077 INFO: Processing standard module hook 'hook-_osx_support.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-36111 INFO: Processing pre-safe-import-module hook 'hook-packaging.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-36785 INFO: Processing pre-safe-import-module hook 'hook-jaraco.text.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-36787 INFO: Setuptools: 'jaraco.text' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.jaraco.text'!
-36801 INFO: Processing standard module hook 'hook-setuptools._vendor.jaraco.text.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-36802 INFO: Processing pre-safe-import-module hook 'hook-importlib_resources.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-36803 INFO: Processing pre-safe-import-module hook 'hook-jaraco.context.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-37095 INFO: Processing pre-safe-import-module hook 'hook-backports.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-37096 INFO: Setuptools: 'backports' appears to be a full setuptools-vendored copy - creating alias to 'setuptools._vendor.backports'!
-39391 INFO: Processing pre-safe-import-module hook 'hook-wheel.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-39392 INFO: Setuptools: 'wheel' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.wheel'!
-40456 INFO: Processing standard module hook 'hook-mako.codegen.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-41017 INFO: Processing standard module hook 'hook-pygments.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-43559 INFO: Processing standard module hook 'hook-zoneinfo.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-45951 INFO: Processing standard module hook 'hook-certifi.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-46351 INFO: Processing standard module hook 'hook-anyio.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-48383 INFO: Processing standard module hook 'hook-keyring.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-49014 INFO: Processing pre-safe-import-module hook 'hook-importlib_metadata.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-49015 INFO: Setuptools: 'importlib_metadata' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.importlib_metadata'!
-49041 INFO: Processing standard module hook 'hook-setuptools._vendor.importlib_metadata.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-49136 INFO: Processing pre-safe-import-module hook 'hook-zipp.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-49137 INFO: Setuptools: 'zipp' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.zipp'!
-49445 INFO: Processing standard module hook 'hook-PySide6.QtSvg.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-50047 INFO: Processing standard module hook 'hook-PySide6.QtWebEngineWidgets.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-50731 INFO: Processing standard module hook 'hook-PySide6.QtPrintSupport.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-51364 INFO: Processing standard module hook 'hook-PySide6.QtCharts.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-52772 INFO: Processing standard module hook 'hook-PySide6.QtPdf.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-53320 INFO: Processing standard module hook 'hook-PySide6.QtPdfWidgets.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-55074 INFO: Processing standard module hook 'hook-xml.dom.domreg.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-56428 INFO: Processing standard module hook 'hook-docx.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-56792 INFO: Processing standard module hook 'hook-lxml.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-57263 INFO: Processing standard module hook 'hook-lxml.etree.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-59042 INFO: Analyzing hidden import 'keyring.backends.Windows'
-59176 INFO: Processing standard module hook 'hook-win32ctypes.core.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-59686 INFO: Analyzing hidden import 'win32timezone'
-59686 ERROR: Hidden import 'win32timezone' not found
-59687 INFO: Analyzing hidden import 'sqlalchemy.dialects.sqlite'
-59779 INFO: Processing standard module hook 'hook-sqlite3.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-60302 INFO: Analyzing hidden import 'logging.config'
-60376 INFO: Processing module hooks (post-graph stage)...
-60906 INFO: Processing standard module hook 'hook-difflib.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-61228 INFO: Processing standard module hook 'hook-webbrowser.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-62030 INFO: Processing standard module hook 'hook-lxml.isoschematron.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-62087 WARNING: Hidden import "tzdata" not found!
-62171 INFO: Processing pre-safe-import-module hook 'hook-gi.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-68871 INFO: Processing standard module hook 'hook-PySide6.QtOpenGL.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-71091 INFO: Processing standard module hook 'hook-PySide6.QtOpenGLWidgets.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-71643 INFO: Processing standard module hook 'hook-PySide6.QtQuick.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-72580 INFO: Processing standard module hook 'hook-PySide6.QtQml.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-76294 WARNING: QtLibraryInfo(PySide6): QML plugin binary 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PySide6\\qml\\Qt\\labs\\assetdownloader\\qmlassetdownloaderprivateplugin.dll' does not exist!
-102640 INFO: Processing standard module hook 'hook-PySide6.QtPositioning.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-103805 INFO: Processing standard module hook 'hook-PySide6.QtQuickWidgets.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-104443 INFO: Processing standard module hook 'hook-sqlalchemy.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-104841 WARNING: Hidden import "pysqlite2" not found!
-104842 WARNING: Hidden import "MySQLdb" not found!
-105021 INFO: Processing standard module hook 'hook-lxml.objectify.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-105049 INFO: Performing binary vs. data reclassification (2860 entries)
-139927 INFO: Looking for ctypes DLLs
-139946 INFO: Analyzing run-time hooks ...
-139951 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
-139959 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
-139966 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
-139974 INFO: Including run-time hook 'pyi_rth_setuptools.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
-139979 INFO: Including run-time hook 'pyi_rth_pyside6.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
-139986 INFO: Processing pre-find-module-path hook 'hook-_pyi_rth_utils.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_find_module_path'
-139993 INFO: Processing standard module hook 'hook-_pyi_rth_utils.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
-140060 INFO: Creating base_library.zip...
-140074 INFO: Looking for dynamic libraries
-141723 INFO: Extra DLL search directories (AddDllDirectory): ['E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\shiboken6']
-141723 INFO: Extra DLL search directories (PATH): ['E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PySide6']
-145403 INFO: Warnings written to E:\Projects\Resume_generator_New\resume_ai_desktop\build\resume_ai\warn-resume_ai.txt
-145487 INFO: Graph cross-reference written to E:\Projects\Resume_generator_New\resume_ai_desktop\build\resume_ai\xref-resume_ai.html
-145606 INFO: checking PYZ
-145628 INFO: Building because E:\Projects\Resume_generator_New\resume_ai_desktop\app\data\models.py changed
-145628 INFO: Building PYZ (ZlibArchive) E:\Projects\Resume_generator_New\resume_ai_desktop\build\resume_ai\PYZ-00.pyz
-146744 INFO: Building PYZ (ZlibArchive) E:\Projects\Resume_generator_New\resume_ai_desktop\build\resume_ai\PYZ-00.pyz completed successfully.
-146768 INFO: checking PKG
-146782 INFO: Building because E:\Projects\Resume_generator_New\resume_ai_desktop\build\resume_ai\PYZ-00.pyz changed
-146782 INFO: Building PKG (CArchive) ResumeAI.pkg
-146841 INFO: Building PKG (CArchive) ResumeAI.pkg completed successfully.
-146842 INFO: Bootloader E:\Projects\Resume_generator_New\resume_ai_desktop\.venv\Lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\runw.exe
-146842 INFO: checking EXE
-146880 INFO: Rebuilding EXE-00.toc because pkg is more recent
-146880 INFO: Building EXE from EXE-00.toc
-146881 INFO: Copying bootloader EXE to E:\Projects\Resume_generator_New\resume_ai_desktop\build\resume_ai\ResumeAI.exe
-147117 INFO: Copying icon to EXE
-147203 INFO: Copying 0 resources to EXE
-147203 INFO: Embedding manifest in EXE
-147240 INFO: Appending PKG archive to EXE
-147462 INFO: Fixing EXE headers
-148016 INFO: Building EXE from EXE-00.toc completed successfully.
-148035 INFO: checking COLLECT
-148073 INFO: Removing dir E:\Projects\Resume_generator_New\resume_ai_desktop\dist\ResumeAI
-148330 INFO: Building COLLECT COLLECT-00.toc
-150112 INFO: Building COLLECT COLLECT-00.toc completed successfully.
-150163 INFO: Build complete! The results are available in: E:\Projects\Resume_generator_New\resume_ai_desktop\dist
+1069 INFO: Appending 'datas' from .spec
+1070 INFO: checking Analysis
+1135 INFO: Building because excludes changed
+1135 INFO: Looking for Python shared library...
+1135 INFO: Using Python shared library: C:\Users\WangYushi\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\python312.dll
+1135 INFO: Running Analysis Analysis-00.toc
+1135 INFO: Target bytecode optimization level: 0
+1135 INFO: Initializing module dependency graph...
+1137 INFO: Initializing module graph hook caches...
+1174 INFO: Analyzing modules for base_library.zip ...
+2926 INFO: Processing standard module hook 'hook-encodings.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+3396 INFO: Processing standard module hook 'hook-math.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+5323 INFO: Processing standard module hook 'hook-pickle.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+7181 INFO: Processing standard module hook 'hook-heapq.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+8956 INFO: Caching module dependency graph...
+8983 INFO: Analyzing E:\Projects\Resume_generator_New\resume_ai_desktop\app\main.py
+9309 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+9601 INFO: Processing standard module hook 'hook-xml.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+10111 INFO: Processing standard module hook 'hook-_ctypes.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+10688 INFO: Processing standard module hook 'hook-PySide6.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+11358 INFO: Processing standard module hook 'hook-shiboken6.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+11460 INFO: Processing standard module hook 'hook-PySide6.QtNetwork.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+13376 INFO: Processing standard module hook 'hook-PySide6.QtCore.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+15203 INFO: Processing standard module hook 'hook-PySide6.QtWebEngineCore.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+17233 INFO: Processing standard module hook 'hook-PySide6.QtGui.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+26990 INFO: Processing standard module hook 'hook-PySide6.QtWebChannel.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+27920 INFO: Processing standard module hook 'hook-PySide6.QtWidgets.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+30063 INFO: Processing standard module hook 'hook-sqlalchemy.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+31369 INFO: Processing standard module hook 'hook-platform.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+31394 INFO: Processing standard module hook 'hook-sysconfig.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+31904 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+31906 INFO: SetuptoolsInfo: initializing cached setuptools info...
+37526 INFO: Processing pre-safe-import-module hook 'hook-tomli.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+37526 INFO: Setuptools: 'tomli' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.tomli'!
+37540 INFO: Processing standard module hook 'hook-setuptools.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+37591 INFO: Processing pre-safe-import-module hook 'hook-distutils.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+37722 INFO: Processing pre-safe-import-module hook 'hook-jaraco.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+37722 INFO: Setuptools: 'jaraco' appears to be a partial setuptools-vendored copy - extending search paths to ['E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\jaraco', 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\setuptools\\_vendor\\jaraco']!
+37724 INFO: Processing pre-safe-import-module hook 'hook-jaraco.functools.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+37748 INFO: Processing pre-safe-import-module hook 'hook-more_itertools.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+38010 INFO: Processing standard module hook 'hook-_osx_support.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+38053 INFO: Processing pre-safe-import-module hook 'hook-packaging.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+38530 INFO: Processing pre-safe-import-module hook 'hook-jaraco.text.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+38531 INFO: Setuptools: 'jaraco.text' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.jaraco.text'!
+38547 INFO: Processing standard module hook 'hook-setuptools._vendor.jaraco.text.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+38549 INFO: Processing pre-safe-import-module hook 'hook-importlib_resources.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+38550 INFO: Processing pre-safe-import-module hook 'hook-jaraco.context.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+38817 INFO: Processing pre-safe-import-module hook 'hook-backports.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+38818 INFO: Setuptools: 'backports' appears to be a full setuptools-vendored copy - creating alias to 'setuptools._vendor.backports'!
+41041 INFO: Processing pre-safe-import-module hook 'hook-wheel.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+41042 INFO: Setuptools: 'wheel' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.wheel'!
+42205 INFO: Processing standard module hook 'hook-mako.codegen.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+42741 INFO: Processing standard module hook 'hook-pygments.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+45303 INFO: Processing standard module hook 'hook-zoneinfo.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+47775 INFO: Processing standard module hook 'hook-certifi.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+48051 INFO: Processing standard module hook 'hook-anyio.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+49847 INFO: Processing standard module hook 'hook-keyring.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+50562 INFO: Processing pre-safe-import-module hook 'hook-importlib_metadata.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+50563 INFO: Setuptools: 'importlib_metadata' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.importlib_metadata'!
+50590 INFO: Processing standard module hook 'hook-setuptools._vendor.importlib_metadata.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+50710 INFO: Processing pre-safe-import-module hook 'hook-zipp.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+50711 INFO: Setuptools: 'zipp' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.zipp'!
+50900 INFO: Processing standard module hook 'hook-PySide6.QtSvg.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+51416 INFO: Processing standard module hook 'hook-PySide6.QtWebEngineWidgets.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+52076 INFO: Processing standard module hook 'hook-PySide6.QtPrintSupport.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+52760 INFO: Processing standard module hook 'hook-PySide6.QtCharts.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+54302 INFO: Processing standard module hook 'hook-PySide6.QtPdf.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+54852 INFO: Processing standard module hook 'hook-PySide6.QtPdfWidgets.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+56413 INFO: Processing standard module hook 'hook-xml.dom.domreg.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+57907 INFO: Processing standard module hook 'hook-docx.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+58267 INFO: Processing standard module hook 'hook-lxml.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+58761 INFO: Processing standard module hook 'hook-lxml.etree.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+60220 INFO: Analyzing hidden import 'keyring.backends.Windows'
+60363 INFO: Processing standard module hook 'hook-win32ctypes.core.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+60876 INFO: Analyzing hidden import 'win32timezone'
+60876 ERROR: Hidden import 'win32timezone' not found
+60876 INFO: Analyzing hidden import 'sqlalchemy.dialects.sqlite'
+60973 INFO: Processing standard module hook 'hook-sqlite3.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+61525 INFO: Analyzing hidden import 'logging.config'
+61604 INFO: Processing module hooks (post-graph stage)...
+62092 INFO: Processing standard module hook 'hook-difflib.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+62384 INFO: Processing standard module hook 'hook-webbrowser.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+63130 INFO: Processing standard module hook 'hook-lxml.isoschematron.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+63187 WARNING: Hidden import "tzdata" not found!
+63303 INFO: Processing pre-safe-import-module hook 'hook-gi.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+68468 INFO: Processing standard module hook 'hook-PySide6.QtOpenGLWidgets.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+70212 INFO: Processing standard module hook 'hook-PySide6.QtOpenGL.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+72669 INFO: Processing standard module hook 'hook-PySide6.QtQuick.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+74068 INFO: Processing standard module hook 'hook-PySide6.QtQml.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+78167 WARNING: QtLibraryInfo(PySide6): QML plugin binary 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PySide6\\qml\\Qt\\labs\\assetdownloader\\qmlassetdownloaderprivateplugin.dll' does not exist!
+106132 INFO: Processing standard module hook 'hook-PySide6.QtPositioning.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+107234 INFO: Processing standard module hook 'hook-PySide6.QtQuickWidgets.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+107892 INFO: Processing standard module hook 'hook-sqlalchemy.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+108306 WARNING: Hidden import "pysqlite2" not found!
+108306 WARNING: Hidden import "MySQLdb" not found!
+108525 INFO: Processing standard module hook 'hook-lxml.objectify.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+108559 INFO: Performing binary vs. data reclassification (2860 entries)
+146038 INFO: Looking for ctypes DLLs
+146061 INFO: Analyzing run-time hooks ...
+146067 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+146076 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+146087 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+146098 INFO: Including run-time hook 'pyi_rth_setuptools.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+146105 INFO: Including run-time hook 'pyi_rth_pyside6.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+146117 INFO: Processing pre-find-module-path hook 'hook-_pyi_rth_utils.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_find_module_path'
+146125 INFO: Processing standard module hook 'hook-_pyi_rth_utils.py' from 'E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+146252 INFO: Creating base_library.zip...
+146265 INFO: Looking for dynamic libraries
+148116 INFO: Extra DLL search directories (AddDllDirectory): ['E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\shiboken6']
+148116 INFO: Extra DLL search directories (PATH): ['E:\\Projects\\Resume_generator_New\\resume_ai_desktop\\.venv\\Lib\\site-packages\\PySide6']
+160538 INFO: Warnings written to E:\Projects\Resume_generator_New\resume_ai_desktop\build\resume_ai\warn-resume_ai.txt
+160843 INFO: Graph cross-reference written to E:\Projects\Resume_generator_New\resume_ai_desktop\build\resume_ai\xref-resume_ai.html
+161193 INFO: checking PYZ
+161273 INFO: Building because E:\Projects\Resume_generator_New\resume_ai_desktop\app\data\store.py changed
+161273 INFO: Building PYZ (ZlibArchive) E:\Projects\Resume_generator_New\resume_ai_desktop\build\resume_ai\PYZ-00.pyz
+164236 INFO: Building PYZ (ZlibArchive) E:\Projects\Resume_generator_New\resume_ai_desktop\build\resume_ai\PYZ-00.pyz completed successfully.
+164327 INFO: checking PKG
+164350 INFO: Building because E:\Projects\Resume_generator_New\resume_ai_desktop\build\resume_ai\PYZ-00.pyz changed
+164350 INFO: Building PKG (CArchive) ResumeAI.pkg
+164462 INFO: Building PKG (CArchive) ResumeAI.pkg completed successfully.
+164464 INFO: Bootloader E:\Projects\Resume_generator_New\resume_ai_desktop\.venv\Lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\runw.exe
+164464 INFO: checking EXE
+164499 INFO: Rebuilding EXE-00.toc because pkg is more recent
+164499 INFO: Building EXE from EXE-00.toc
+164499 INFO: Copying bootloader EXE to E:\Projects\Resume_generator_New\resume_ai_desktop\build\resume_ai\ResumeAI.exe
+164662 INFO: Copying icon to EXE
+164755 INFO: Copying 0 resources to EXE
+164755 INFO: Embedding manifest in EXE
+164861 INFO: Appending PKG archive to EXE
+165030 INFO: Fixing EXE headers
+165847 INFO: Building EXE from EXE-00.toc completed successfully.
+165937 INFO: checking COLLECT
+166050 INFO: Removing dir E:\Projects\Resume_generator_New\resume_ai_desktop\dist\ResumeAI
+167609 INFO: Building COLLECT COLLECT-00.toc
+173165 INFO: Building COLLECT COLLECT-00.toc completed successfully.
+173374 INFO: Build complete! The results are available in: E:\Projects\Resume_generator_New\resume_ai_desktop\dist
 -- settings 
         1 file(s) copied.
         1 file(s) copied.
 .env copied 
 -- check 
-10/08/2026  01:28 AM        12,073,561 ResumeAI.exe
+10/12/2026  12:06 AM        12,076,848 ResumeAI.exe
 webengine process: yes 
 webengine resources: yes 
 page scripts: yes 

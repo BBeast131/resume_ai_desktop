@@ -311,6 +311,79 @@ def test_saved_jobs_table_and_removal(window, ctx, monkeypatch):
     assert window.nav["saved_jobs"].badge.text() == "1"
 
 
+def _tick(page, *rows):
+    for row in rows:
+        page.table.item(row, 0).setCheckState(Qt.CheckState.Checked)
+
+
+def test_saved_jobs_tick_several_and_remove_them_together(window, ctx, monkeypatch):
+    for n in range(1, 6):
+        add_job(ctx.store, n, now=utc(2026, 10, n))
+    window.show_page("saved_jobs")
+    page = window.saved_jobs
+    assert page.selection_bar.isVisible()
+    assert page.table.item(0, 0).flags() & Qt.ItemFlag.ItemIsUserCheckable
+    assert page.table.item(0, 0).checkState() == Qt.CheckState.Unchecked
+    assert not page.remove_selected.isEnabled() and page.remove_selected.text() == "Remove selected"
+
+    _tick(page, 0, 2)
+    page._cell_clicked(4, 1)  # a click on the row's text ticks it too
+    assert page.selected_ids() == [page.rows[0].id, page.rows[2].id, page.rows[4].id]
+    assert page.selected_count.text() == "3 selected"
+    assert page.remove_selected.isEnabled() and page.remove_selected.text() == "Remove selected (3)"
+    assert page.select_all.checkState() == Qt.CheckState.PartiallyChecked
+    page._cell_clicked(4, 2)
+    assert page.selected_count.text() == "2 selected"
+
+    asked = []
+    monkeypatch.setattr(
+        "app.ui.pages.saved_jobs.confirm", lambda _parent, title, *args, **kwargs: asked.append(title) or True
+    )
+    page.remove_selected.click()
+    assert asked == ["Remove 2 jobs?"]
+    assert page.toasts.history[-1] == ("success", "Removed 2 jobs")
+    assert [page.table.item(row, 1).text() for row in range(page.table.rowCount())] == [
+        "Company 2",
+        "Company 4",
+        "Company 5",
+    ]
+    assert ctx.store.saved_job_count() == 3 and window.nav["saved_jobs"].badge.text() == "3"
+    assert page.selected_ids() == [] and not page.remove_selected.isEnabled()
+
+
+def test_saved_jobs_select_all_shift_range_and_search(window, ctx, monkeypatch):
+    for n in range(1, 7):
+        add_job(ctx.store, n, now=utc(2026, 10, n))
+    window.show_page("saved_jobs")
+    page = window.saved_jobs
+
+    page.select_all.click()
+    assert len(page.selected_ids()) == 6 and page.select_all.checkState() == Qt.CheckState.Checked
+    assert all(page.table.item(row, 0).checkState() == Qt.CheckState.Checked for row in range(6))
+    page.select_all.click()
+    assert page.selected_ids() == [] and page.select_all.checkState() == Qt.CheckState.Unchecked
+
+    # Shift-click ticks everything between the last tick and this one.
+    _tick(page, 1)
+    monkeypatch.setattr("app.ui.pages.saved_jobs.shift_held", lambda: True)
+    _tick(page, 4)
+    monkeypatch.undo()
+    assert page.selected_ids() == [page.rows[index].id for index in (1, 2, 3, 4)]
+    assert page.table.item(3, 0).checkState() == Qt.CheckState.Checked
+
+    page.clear_selection.click()
+    assert page.selected_ids() == []
+
+    # A search keeps only the ticks still on screen: nothing hidden is removed unseen.
+    _tick(page, 0, 5)
+    page.search.setText("Company 6")
+    page.refresh()
+    assert page.table.rowCount() == 1 and page.selected_ids() == [page.rows[0].id]
+    page.search.setText("")
+    page.refresh()
+    assert len(page.selected_ids()) == 1 and page.selected_count.text() == "1 selected"
+
+
 def test_check_duplicates_button_removes_and_reports(window, ctx):
     add_resume(ctx.store, 9, company="Globex", role="Platform Engineer")
     add_job(ctx.store, 1, now=utc(2026, 10, 1), company="Acme", role="Engineer")
@@ -763,6 +836,8 @@ async def test_view_as_shows_the_other_users_data_read_only(admin_window):
     assert saved.table.rowCount() == 1 and saved.table.item(0, 1).text() == "Globex"
     assert saved.table.isColumnHidden(7) and not saved.remove_selected.isVisible()
     assert saved.table.cellWidget(0, 7) is None
+    assert not saved.selection_bar.isVisible()
+    assert not saved.table.item(0, 0).flags() & Qt.ItemFlag.ItemIsUserCheckable
 
     # Generated Resumes: a status chip instead of a select, no Open buttons, downloads still work.
     window.show_page("generated")

@@ -219,6 +219,7 @@ QComboBox QAbstractItemView {{
 QCheckBox {{ spacing: 8px; }}
 QCheckBox::indicator {{ width: 16px; height: 16px; border: 1px solid {t.border_strong}; border-radius: 4px; background: {t.card}; }}
 QCheckBox::indicator:checked {{ background: {t.primary}; border-color: {t.primary}; image: url(ICON_CHECK_WHITE); }}
+QCheckBox::indicator:indeterminate {{ background: {t.primary}; border-color: {t.primary}; image: url(ICON_MINUS_WHITE); }}
 
 /* ---- Tables ---------------------------------------------------------------- */
 QTableWidget, QTableView {{

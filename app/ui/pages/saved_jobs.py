@@ -117,6 +117,10 @@ def fit_columns(table: QTableWidget, stretch: tuple[int, ...], min_stretch: int 
             table.setColumnWidth(column, share)
 
 
+def shift_held() -> bool:
+    return bool(QGuiApplication.keyboardModifiers() & Qt.KeyboardModifier.ShiftModifier)
+
+
 class SavedJobsPage(QWidget):
     #: Ask the main window to open a URL in the Job Search browser.
     open_in_job_search = Signal(str)
@@ -153,23 +157,42 @@ class SavedJobsPage(QWidget):
         toolbar.addWidget(sort_holder)
         self.count = label("", "Muted")
         toolbar.addWidget(self.count)
-        self.remove_selected = button("Remove selected", "danger", "trash")
-        self.remove_selected.clicked.connect(self._remove_selected)
-        self.remove_selected.hide()
-        toolbar.addWidget(self.remove_selected)
         layout.addLayout(toolbar)
+
+        # Above the table: tick jobs in the first column, then remove them in one go.
+        self.checked: set[str] = set()
+        self._anchor_row: int | None = None
+        self._filling = False
+        self.selection_bar = QWidget()
+        bar = QHBoxLayout(self.selection_bar)
+        bar.setContentsMargins(0, 0, 0, 0)
+        bar.setSpacing(10)
+        self.select_all = QCheckBox("Select all")
+        self.select_all.setToolTip("Tick every job shown in the table")
+        self.select_all.clicked.connect(self._toggle_all)
+        bar.addWidget(self.select_all)
+        self.selected_count = label("", "Muted")
+        bar.addWidget(self.selected_count)
+        bar.addStretch(1)
+        self.clear_selection = button("Clear", "ghost")
+        self.clear_selection.setToolTip("Untick every job")
+        self.clear_selection.clicked.connect(lambda: self._set_checked(set()))
+        bar.addWidget(self.clear_selection)
+        self.remove_selected = button("Remove selected", "danger", "trash")
+        self.remove_selected.setToolTip("Remove every ticked job from Saved Jobs")
+        self.remove_selected.clicked.connect(self._remove_selected)
+        bar.addWidget(self.remove_selected)
+        self.selection_bar.setVisible(not provider.read_only)
+        layout.addWidget(self.selection_bar)
 
         self.stack = QStackedWidget()
         layout.addWidget(self.stack, 1)
 
         self.table = make_table(COLUMNS)
-        self.table.setSelectionMode(
-            QAbstractItemView.SelectionMode.NoSelection
-            if provider.read_only
-            else QAbstractItemView.SelectionMode.ExtendedSelection
-        )
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
-        self.table.itemSelectionChanged.connect(self._selection_changed)
+        self.table.itemChanged.connect(self._item_changed)
+        self.table.cellClicked.connect(self._cell_clicked)
         if provider.read_only:
             self.table.setColumnHidden(7, True)
         self.stack.addWidget(self.table)
@@ -196,19 +219,28 @@ class SavedJobsPage(QWidget):
         )
         filtered = bool(self.search.text().strip()) or self.attention_only.isChecked()
         self.count.setText(f"{len(self.rows)} job{'s' if len(self.rows) != 1 else ''}")
+        # Only jobs still on screen stay ticked, so nothing hidden by a search is removed unseen.
+        self.checked &= {job.id for job in self.rows}
+        self._anchor_row = None
         if not self.rows and not filtered:
             self.stack.setCurrentWidget(self.empty)
+            self._update_selection_bar()
             return
         self.stack.setCurrentWidget(self.table)
         self._fill()
 
     def _fill(self) -> None:
         table = self.table
+        self._filling = True
         table.setRowCount(0)
         table.setRowCount(len(self.rows))
         for index, job in enumerate(self.rows):
             number = text_item(str(index + 1))
             number.setData(Qt.ItemDataRole.UserRole, job.id)
+            if not self.provider.read_only:
+                number.setFlags(number.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                number.setCheckState(Qt.CheckState.Checked if job.id in self.checked else Qt.CheckState.Unchecked)
+                number.setToolTip("Tick to select. Shift-click ticks a range.")
             table.setItem(index, 0, number)
             table.setItem(index, 1, text_item(job.company or "—"))
             table.setItem(index, 2, text_item(job.role or "—"))
@@ -247,7 +279,8 @@ class SavedJobsPage(QWidget):
                 remove = button("", "dangerGhost", "trash", tooltip="Remove")
                 remove.clicked.connect(lambda _checked=False, item=job: self._remove([item]))
                 table.setCellWidget(index, 7, cell(remove, align=Qt.AlignmentFlag.AlignCenter))
-        self._selection_changed()
+        self._filling = False
+        self._update_selection_bar()
         fit_columns(self.table, (1, 2))
 
     def resizeEvent(self, event) -> None:  # noqa: N802
@@ -290,18 +323,77 @@ class SavedJobsPage(QWidget):
         QGuiApplication.clipboard().setText(url)
         self.toasts.show("Job URL copied", "success")
 
-    def selected_ids(self) -> list[str]:
-        ids = []
-        for index in sorted({item.row() for item in self.table.selectedItems()}):
-            item = self.table.item(index, 0)
-            if item is not None:
-                ids.append(str(item.data(Qt.ItemDataRole.UserRole)))
-        return ids
+    # -- ticking jobs ---------------------------------------------------------------
 
-    def _selection_changed(self) -> None:
-        count = len(self.selected_ids()) if not self.provider.read_only else 0
-        self.remove_selected.setVisible(count > 1)
-        self.remove_selected.setText(f"Remove selected ({count})")
+    def selected_ids(self) -> list[str]:
+        """The ticked jobs, in table order."""
+        return [job.id for job in self.rows if job.id in self.checked]
+
+    def _row_item(self, row: int) -> QTableWidgetItem | None:
+        return self.table.item(row, 0)
+
+    def _item_changed(self, item: QTableWidgetItem) -> None:
+        if self._filling or item.column() != 0 or self.provider.read_only:
+            return
+        row = item.row()
+        on = item.checkState() == Qt.CheckState.Checked
+        shift = shift_held()
+        rows = [row]
+        if shift and self._anchor_row is not None and self._anchor_row != row:
+            low, high = sorted((self._anchor_row, row))
+            rows = list(range(low, high + 1))
+        for index in rows:
+            if 0 <= index < len(self.rows):
+                (self.checked.add if on else self.checked.discard)(self.rows[index].id)
+        self._anchor_row = row
+        if len(rows) > 1:
+            self._apply_checks()
+        self._update_selection_bar()
+
+    def _cell_clicked(self, row: int, column: int) -> None:
+        """A click on the row's text (not on its buttons) ticks or unticks it too."""
+        if self.provider.read_only or column == 0:
+            return
+        item = self._row_item(row)
+        if item is None:
+            return
+        item.setCheckState(
+            Qt.CheckState.Unchecked if item.checkState() == Qt.CheckState.Checked else Qt.CheckState.Checked
+        )
+
+    def _apply_checks(self) -> None:
+        self._filling = True
+        for index, job in enumerate(self.rows):
+            item = self._row_item(index)
+            if item is not None:
+                item.setCheckState(Qt.CheckState.Checked if job.id in self.checked else Qt.CheckState.Unchecked)
+        self._filling = False
+
+    def _set_checked(self, ids: set[str]) -> None:
+        self.checked = set(ids)
+        self._anchor_row = None
+        self._apply_checks()
+        self._update_selection_bar()
+
+    def _toggle_all(self) -> None:
+        everyone = {job.id for job in self.rows}
+        self._set_checked(set() if everyone and everyone <= self.checked else everyone)
+
+    def _update_selection_bar(self) -> None:
+        count = len(self.selected_ids())
+        total = len(self.rows)
+        self.select_all.setEnabled(total > 0)
+        self.select_all.setCheckState(
+            Qt.CheckState.Unchecked
+            if count == 0
+            else Qt.CheckState.Checked
+            if count == total
+            else Qt.CheckState.PartiallyChecked
+        )
+        self.selected_count.setText(f"{count} selected" if count else "Tick jobs to remove several at once")
+        self.clear_selection.setVisible(count > 0)
+        self.remove_selected.setEnabled(count > 0)
+        self.remove_selected.setText(f"Remove selected ({count})" if count else "Remove selected")
 
     def _remove_selected(self) -> None:
         ids = set(self.selected_ids())
@@ -319,6 +411,7 @@ class SavedJobsPage(QWidget):
         if not confirm(self, title, text, "Remove", danger=True):
             return
         removed = self.ctx.store.remove_saved_jobs([job.id for job in jobs])
+        self.checked -= {job.id for job in jobs}
         self.toasts.show(f"Removed {removed} job{'s' if removed != 1 else ''}", "success")
         self.ctx.changed("jobs")
         self.refresh()
