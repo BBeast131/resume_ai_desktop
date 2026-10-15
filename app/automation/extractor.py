@@ -38,6 +38,18 @@ _MAX_URL_CHARS = 4_000
 _MAX_APPLY_LINKS = 20
 
 
+@dataclass(frozen=True)
+class StructuredCandidate:
+    """A job-like object the page loaded or was rendered from (see extractor.js, 2b)."""
+
+    source: str  # "net" (a JSON response the page fetched) or "state" (embedded app data)
+    origin: str  # host it came from
+    title: str
+    company: str
+    description: str
+    sections: int
+
+
 @dataclass
 class Extraction:
     """What the extractor read from one page, and whether the page is blocked."""
@@ -55,6 +67,9 @@ class Extraction:
     linkedin_source: bool = False
     prose_len: int = 0
     source: str = "generic"
+    candidates: list[StructuredCandidate] = field(default_factory=list)
+    #: Addresses on the page that point at a known ATS posting (for ats_api).
+    ats_urls: list[str] = field(default_factory=list)
     blocked: bool = False
     block_reason: str | None = None
     block_detail: str = ""
@@ -108,6 +123,34 @@ def _links(value: Any) -> list[str]:
     return links
 
 
+_MAX_CANDIDATES = 6
+
+
+def _candidates(value: Any) -> list[StructuredCandidate]:
+    if not isinstance(value, list):
+        return []
+    out: list[StructuredCandidate] = []
+    for item in value[:_MAX_CANDIDATES]:
+        if not isinstance(item, dict):
+            continue
+        source = item.get("source")
+        description = item.get("description")
+        title = _text(item.get("title"), _MAX_FIELD_CHARS)
+        if source not in ("net", "state") or not isinstance(description, str) or not title:
+            continue
+        out.append(
+            StructuredCandidate(
+                source=source,
+                origin=_text(item.get("origin"), 255).lower(),
+                title=title,
+                company=_text(item.get("company"), _MAX_FIELD_CHARS),
+                description=tidy_jd(description),
+                sections=min(_count(item.get("sections")), 50),
+            )
+        )
+    return out
+
+
 def _page_url(page: QWebEnginePage) -> str:
     try:
         return str(page.url().toString())[:_MAX_URL_CHARS]
@@ -148,6 +191,8 @@ def _from_payload(page: QWebEnginePage, payload: Any) -> Extraction:
         linkedin_source=data.get("linkedin_source") is True,
         prose_len=_count(data.get("prose_len")),
         source=source if source in ("ldjson", "generic") or source.startswith("adapter:") else "generic",
+        candidates=_candidates(data.get("candidates")),
+        ats_urls=_links(data.get("ats_urls")),
         blocked=blocked,
         block_reason=reason if blocked else None,
         block_detail=_text(verdict.get("detail"), 200) if blocked else "",
@@ -181,6 +226,8 @@ async def extract_page(page: QWebEnginePage, *, settle: bool = True) -> Extracti
     Never raises for a page problem: a page that went away or did not answer
     comes back as `blocked` with reason `timeout`.
     """
+    if settle:
+        await wait_stable(page)
     result = await _read(page)
     if not settle:
         return result
@@ -207,6 +254,24 @@ async def extract_page(page: QWebEnginePage, *, settle: bool = True) -> Extracti
         result = await _read(page)
 
     return result
+
+
+#: How long a page may keep changing before it is read anyway, and how long it must be quiet.
+STABLE_MAX_SECONDS = 4.0
+STABLE_QUIET_SECONDS = 0.6
+
+
+async def wait_stable(page: QWebEnginePage) -> None:
+    """Let a single-page site finish rendering: wait until the DOM stops changing (bounded)."""
+    try:
+        await ensure_script(page, MARKER, _script())
+        await call_async_js(
+            page,
+            f"{MARKER}.waitStable({int(STABLE_MAX_SECONDS * 1000)}, {int(STABLE_QUIET_SECONDS * 1000)})",
+            timeout=STABLE_MAX_SECONDS + 10.0,
+        )
+    except JsError:
+        pass
 
 
 async def find_apply_control(page: QWebEnginePage) -> dict[str, Any] | None:

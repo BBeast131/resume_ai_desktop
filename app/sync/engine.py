@@ -278,6 +278,13 @@ class SyncEngine:
 
     async def _pull(self) -> int:
         changed = 0
+        retired = 0
+        removed = 0
+        # Resumes pulled by older builds have no page key: give them one, and take their jobs
+        # out of this PC's queue, so nothing made on the other PC is generated here again.
+        backfilled = self.store.backfill_resume_keys()
+        if backfilled:
+            retired += self.store.retire_jobs_done_elsewhere(backfilled)
         state = self.store.sync_state()
         cursor = state.server_cursor
         # The first pull on a PC asks for full records, so a new PC gets its history back.
@@ -292,17 +299,27 @@ class SyncEngine:
                 list(result.get("generatedResumes") or []), list(result.get("deleted") or [])
             )
             if merged.missing and slim:
-                # A record made on another PC: fetch this same page again, in full.
-                result = await self.api.sync_pull(cursor, slim=False, limit=limit)
+                # Records made on another PC: fetch from the same point again, in full. A full
+                # page is kept small (it carries descriptions and resumes); the slim pages carry
+                # on from wherever it ends.
+                result = await self.api.sync_pull(cursor, slim=False, limit=PULL_PAGE_FULL)
                 merged = self.store.merge_remote(
                     list(result.get("generatedResumes") or []), list(result.get("deleted") or [])
                 )
             changed += merged.changed
+            # A resume made on another PC: its job leaves this PC's queue.
+            retired += self.store.retire_jobs_done_elsewhere(merged.created)
+            # Jobs this profile removed, or turned into resumes, on another PC.
+            urls = [str(item.get("url") or "") for item in (result.get("removedJobs") or []) if isinstance(item, dict)]
+            removed += self.store.apply_remote_removals(urls)
             cursor = str(result.get("cursor") or "") or cursor
             self.store.update_sync_state(server_cursor=cursor, last_pull_at=utcnow())
             if not result.get("hasMore"):
                 break
-        return changed
+        if retired or removed:
+            log.info("sync.queue_updated retired=%d removed=%d", retired, removed)
+            self._again = True  # send those removals straight away
+        return changed + retired + removed
 
     # -- the shared job list ------------------------------------------------------
 

@@ -36,7 +36,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.automation.pipeline import SKIP_LABELS, Mode, Pipeline, ReviewData, RunSummary, validation_problem
+from app.automation.pipeline import CHATGPT_URL, SKIP_LABELS, Mode, Pipeline, ReviewData, RunSummary, validation_problem
 from app.browser.browser import BrowserWidget
 from app.data.models import SavedJob
 from app.services.documents import DocumentError, save_copy
@@ -105,7 +105,7 @@ class QueueItem(QWidget):
     def __init__(self, job: SavedJob) -> None:
         super().__init__()
         self.job_id = job.id
-        self.state = "attention" if job.attention_reason else "pending"
+        self.state = "attention" if job.attention_reason else "skipped" if job.skip_reason else "pending"
         layout = QHBoxLayout(self)
         layout.setContentsMargins(12, 9, 10, 9)
         layout.setSpacing(10)
@@ -122,6 +122,8 @@ class QueueItem(QWidget):
         layout.addLayout(text, 1)
         if job.attention_reason:
             self.setToolTip(f"Needs attention: {job.attention_reason}")
+        elif job.skip_reason:
+            self.setToolTip(f"Skipped: {job.skip_reason}")
         self.set_state(self.state)
 
     def set_state(self, state: str) -> None:
@@ -280,6 +282,8 @@ class FloatCard(QFrame):
 
 class GeneratorPage(QWidget):
     open_generated = Signal()
+    #: Show one resume (Generated Resumes, with its preview open).
+    open_resume = Signal(str)
     running_changed = Signal(bool)
 
     def __init__(
@@ -335,9 +339,15 @@ class GeneratorPage(QWidget):
         self.start.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.start.setMinimumWidth(130)
         self.start.clicked.connect(lambda _checked=False: self.start_or_stop())
+        # Human Check: the main button stops only the current step; this one ends the whole run.
+        self.stop_run = button("Stop run", "dangerGhost", "stop", size="large", icon_color=tokens().danger)
+        self.stop_run.setToolTip("End the whole run at the next safe point")
+        self.stop_run.clicked.connect(lambda _checked=False: self.stop())
+        self.stop_run.hide()
         for widget in (self.import_prompt, self.import_resume, self.clear_resume, self.download):
             toolbar.addWidget(widget)
         toolbar.addStretch(1)
+        toolbar.addWidget(self.stop_run)
         toolbar.addWidget(self.start)
         layout.addLayout(toolbar)
 
@@ -412,6 +422,9 @@ class GeneratorPage(QWidget):
         )  # type: ignore[assignment]
         if self.browser is not None:
             browser_layout.addWidget(self.browser)
+            # The address bar is yours: open ChatGPT, sign in, or finish a step by hand.
+            self.browser.set_address_editable(True)
+            self.browser.tabs.setTabsClosable(True)  # until a run starts
         self.splitter.addWidget(browser_card)
         self.review_panel = ReviewPanel(ctx.limits)
         self.review_panel.next_clicked.connect(self._force_next)
@@ -424,6 +437,10 @@ class GeneratorPage(QWidget):
         run_layout.addWidget(self.splitter, 1)
         self.board.addWidget(self.run_area)
         layout.addLayout(body, 1)
+        if self.browser is not None:
+            # The browser is there before a run too (sign in to ChatGPT, look around).
+            self.board.setCurrentWidget(self.run_area)
+        self._show_run_header(False)
 
         # ---- floating cards (children of the run area; none of them is modal) ----
         self.countdown_card = FloatCard(self.run_area, width=300)
@@ -507,6 +524,11 @@ class GeneratorPage(QWidget):
         for job in jobs:
             if job.id not in self.queue_items:
                 self._add_queue_item(job)
+        # Jobs that left the list meanwhile (removed, or done on another PC) will not run.
+        active = {job.id for job in jobs}
+        for job_id, widget in self.queue_items.items():
+            if job_id not in active and widget.state in ("pending", "attention"):
+                widget.set_state("skipped")
         self.queue_title.setText(f"Job Queue ({len(self.queue_items)})")
         self.queue.setVisible(bool(self.queue_items))
         self.queue_empty.setVisible(not self.queue_items)
@@ -559,7 +581,18 @@ class GeneratorPage(QWidget):
             if self.last_resume_id
             else "Available once this run has generated a resume"
         )
-        if self.running:
+        human = self.running and self.pipeline is not None and self.pipeline.mode == "human"
+        self.stop_run.setVisible(human)
+        if human:
+            self.start.setText("Stop step")
+            self.start.setProperty("variant", "danger")
+            self.start.setIcon(icons.icon("stop", "#FFFFFF", 14))
+            self.start.setEnabled(True)
+            self.start.setToolTip(
+                "Stop only the automatic part of this step (reading the job, ChatGPT). The job stays open: "
+                "finish the step in the browser, then press Continue."
+            )
+        elif self.running:
             self.start.setText("Stop")
             self.start.setProperty("variant", "danger")
             self.start.setIcon(icons.icon("stop", "#FFFFFF", 14))
@@ -649,32 +682,53 @@ class GeneratorPage(QWidget):
     # Start / Stop
     # ------------------------------------------------------------------
 
+    def showEvent(self, event) -> None:  # noqa: N802
+        super().showEvent(event)
+        # Before a run the browser shows ChatGPT, so you can check you are signed in.
+        if self.browser is not None and not self.running and not self.browser.views():
+            self.browser.add_tab(self.chatgpt_url or CHATGPT_URL)
+
+    def _show_run_header(self, running: bool) -> None:
+        self.stepper.setVisible(running)
+        self.status.setVisible(running)
+
     def start_or_stop(self) -> None:
         if self.running:
-            self.stop()
+            if self.pipeline is not None and self.pipeline.mode == "human":
+                self.stop_step()
+            else:
+                self.stop()
             return
         if self.start_problem() is not None:
             return
         dialog = StartDialog(
-            self, self.ctx.settings.start_mode, self.ctx.store.attention_count(), self.ctx.settings.automation_seconds
+            self,
+            self.ctx.settings.start_mode,
+            self.ctx.store.attention_count(),
+            self.ctx.settings.automation_seconds,
+            self.ctx.store.skipped_count(),
         )
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         self.ctx.settings.start_mode = dialog.mode
-        self.begin(dialog.mode, dialog.include_attention)
+        self.begin(dialog.mode, dialog.include_attention, dialog.include_skipped)
 
-    def begin(self, mode: Mode, include_attention: bool = False) -> asyncio.Future[Any]:
+    def begin(self, mode: Mode, include_attention: bool = False, include_skipped: bool = False) -> asyncio.Future[Any]:
         self.last_resume_id = None
         self.refresh_queue()
         self.board.setCurrentWidget(self.run_area)
+        self._show_run_header(True)
+        if self.browser is not None:
+            self.browser.tabs.setTabsClosable(False)  # the run owns its tabs until it ends
         self.review_panel.hide()
         self.log_view.clear()
         self.log(f"Run started: {'Automation' if mode == 'automation' else 'Human Check'} mode")
-        kwargs: dict[str, Any] = {"include_attention": include_attention}
+        kwargs: dict[str, Any] = {"include_attention": include_attention, "include_skipped": include_skipped}
         if self.chatgpt_url:
             kwargs["chatgpt_url"] = self.chatgpt_url
         self.pipeline = Pipeline(self.ctx, self, mode, **kwargs)
         self.pipeline.on_generated = self._generated
+        self.pipeline.before_job = self.ctx.sync.sync
         self.run_task = spawn(self._run())
         self._sync_controls()
         self.running_changed.emit(True)
@@ -692,7 +746,11 @@ class GeneratorPage(QWidget):
             self._hide_cards()
             self.review_panel.hide()
             self.status.setText("")
-            self.board.setCurrentIndex(0)
+            self._show_run_header(False)
+            if self.browser is None:
+                self.board.setCurrentIndex(0)
+            else:
+                self.browser.tabs.setTabsClosable(True)
             self.run_task = None
             self.pipeline = None
             self.refresh_queue()
@@ -704,6 +762,16 @@ class GeneratorPage(QWidget):
         )
         self.show_summary(summary)
         return summary
+
+    def stop_step(self) -> None:
+        """Human Check: stop only the automatic part of the current step; you finish it."""
+        if self.pipeline is None:
+            return
+        if self.pipeline.take_over():
+            self.log("Stop step: you finish this step in the browser.")
+            self.status.setText("Stopping this step…")
+        else:
+            self.toasts.show("Nothing automatic is running right now. Use the buttons on the card.", "info")
 
     def stop(self) -> None:
         if self.pipeline is None:
@@ -875,6 +943,41 @@ class GeneratorPage(QWidget):
             if shiboken6.isValid(dialog) and dialog.isVisible():
                 dialog.done(0)
         return "retry" if result == "retry" else "skip"
+
+    async def taken_over(self, step: int, title: str, text: str) -> str:
+        future = self._wait()
+        self.review_panel.hide()
+        self._show_alert(
+            title,
+            text,
+            [
+                ("Skip job", "", lambda: self._resolve("skip")),
+                ("Continue  →", "primary", lambda: self._resolve("continue")),
+            ],
+        )
+        self.status.setText(text)
+        try:
+            result = await future
+        finally:
+            self._hide_cards()
+        return str(result) if result in ("continue", "skip") else "stop"
+
+    async def resume_ready(self, resume_id: str, title: str) -> None:
+        self.last_resume_id = resume_id
+        self._sync_controls()
+        future = self._wait()
+        self._show_alert(
+            f"Resume saved: {title}",
+            "Open it to check it. The run goes on to the next job when you press Next job.",
+            [
+                ("View resume", "", lambda: self.open_resume.emit(resume_id)),
+                ("Next job  →", "primary", lambda: self._resolve("next")),
+            ],
+        )
+        try:
+            await future
+        finally:
+            self._hide_cards()
 
     async def countdown(self, seconds: int, text: str) -> None:
         future = self._wait()
@@ -1062,7 +1165,7 @@ class ModeCard(QFrame):
 
 
 class StartDialog(Modal):
-    def __init__(self, parent: QWidget, mode: str, attention_count: int, seconds: int) -> None:
+    def __init__(self, parent: QWidget, mode: str, attention_count: int, seconds: int, skipped_count: int = 0) -> None:
         super().__init__(parent, 440)
         self.mode: Mode = "human" if mode == "human" else "automation"
         self.add_title("Start Resume Generation", "Choose how you want to process the saved jobs.")
@@ -1078,6 +1181,10 @@ class StartDialog(Modal):
         self.include.setToolTip("Jobs that were set aside because their page needed you")
         self.include.setVisible(attention_count > 0)
         self.body.addWidget(self.include)
+        self.retry_skipped = QCheckBox(f"Retry skipped jobs ({skipped_count})")
+        self.retry_skipped.setToolTip("Jobs an earlier run skipped; they stay in Saved Jobs marked Skipped")
+        self.retry_skipped.setVisible(skipped_count > 0)
+        self.body.addWidget(self.retry_skipped)
         cancel = button("Cancel")
         self.start = button("Start", "primary")
         cancel.clicked.connect(self.reject)
@@ -1095,6 +1202,10 @@ class StartDialog(Modal):
     def include_attention(self) -> bool:
         # isHidden(), not isVisible(): this is read after the dialog has closed.
         return not self.include.isHidden() and self.include.isChecked()
+
+    @property
+    def include_skipped(self) -> bool:
+        return not self.retry_skipped.isHidden() and self.retry_skipped.isChecked()
 
 
 class JsonViewer(Modal):
@@ -1195,7 +1306,9 @@ class SummaryDialog(Modal):
         counts: dict[str, int] = {}
         for record in summary.skipped:
             counts[record.reason] = counts.get(record.reason, 0) + 1
-        self.skipped = label(f"{len(summary.skipped)} skipped")
+        self.skipped = label(
+            f"{len(summary.skipped)} skipped" + (" (still in Saved Jobs, marked Skipped)" if summary.skipped else "")
+        )
         self.body.addWidget(self.skipped)
         for reason, count in counts.items():
             self.body.addWidget(label(f"   •  {SKIP_LABELS.get(reason, reason)}: {count}", "Muted"))

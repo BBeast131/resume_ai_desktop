@@ -13,14 +13,26 @@ is handed to the person.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol, TypeVar
 
-from app.automation import chatgpt
+from app.automation import ats_api, chatgpt
 from app.automation.chat_url import chat_id_from_url
+from app.automation.evidence import (
+    STRONG_CONFIDENCE,
+    Decision,
+    Evidence,
+    FusedJob,
+    ats_evidence,
+    fuse,
+    page_evidence,
+    same_company,
+    same_role,
+)
 from app.automation.extractor import Extraction, click_apply_control, extract_page
 from app.automation.job_rules import BLOCK_MESSAGES, MIN_JD_CHARS, site_of, url_key
 from app.automation.prompt import compose_prompt, compose_retry_message
@@ -67,6 +79,12 @@ class ReviewData:
     check: JobCheck | None = None
     #: The page looked like a bare application form; the AI check must confirm the description.
     form_only: bool = False
+    #: How role, company and description were decided (sources and confidence).
+    fused: FusedJob | None = None
+
+
+class TakenOver(Exception):  # noqa: N818 - a signal, not an error
+    """Human Check: Stop step was pressed; the user finishes this step in the browser."""
 
 
 @dataclass
@@ -154,6 +172,16 @@ class PipelineHost(Protocol):
     async def countdown(self, seconds: int, text: str) -> None:
         """The Automation delay before a step. Raises Stopped if Stop is pressed."""
 
+    async def taken_over(self, step: int, title: str, text: str) -> str:
+        """Human Check: the user stopped the automatic part of a step. Returns continue | skip | stop."""
+
+    async def resume_ready(self, resume_id: str, title: str) -> None:
+        """Human Check, after a step the user finished: show the saved resume, return on Next job."""
+
+
+#: The quick sync before each job waits at most this long.
+PRESYNC_SECONDS = 20.0
+
 
 class Pipeline:
     def __init__(
@@ -163,17 +191,28 @@ class Pipeline:
         mode: Mode,
         *,
         include_attention: bool = False,
+        include_skipped: bool = False,
         chatgpt_url: str = CHATGPT_URL,
     ) -> None:
         self.ctx = ctx
         self.host = host
         self.mode: Mode = mode
         self.include_attention = include_attention
+        #: Retry jobs an earlier run skipped (they stay in Saved Jobs, marked "Skipped").
+        self.include_skipped = include_skipped
         self.chatgpt_url = chatgpt_url
         self.cancel = asyncio.Event()
         self.summary = RunSummary()
         self._chat_failures = 0
         self.on_generated: Callable[[str], None] | None = None
+        #: Human Check: "Stop step" was pressed while an automatic step was running.
+        self._take_over = asyncio.Event()
+        self._pausable = 0
+        #: The user finished a step of the current job themselves.
+        self._taken_over = False
+        #: Called before each job: a quick sync, so a job another PC on this profile has
+        #: already turned into a resume leaves the queue before it is started here.
+        self.before_job: Callable[[], Awaitable[Any]] | None = None
 
     # -- control ---------------------------------------------------------------------
 
@@ -184,6 +223,42 @@ class Pipeline:
     def _check(self) -> None:
         if self.cancel.is_set():
             raise Stopped()
+
+    @property
+    def can_take_over(self) -> bool:
+        """Human Check, and an automatic step (reading the job, ChatGPT) is running right now."""
+        return self.mode == "human" and self._pausable > 0 and not self.cancel.is_set()
+
+    def take_over(self) -> bool:
+        """Human Check: stop only the automatic part of the current step; the job stays open
+        and the user finishes the step in the browser. False when nothing automatic is running."""
+        if not self.can_take_over:
+            return False
+        self._take_over.set()
+        return True
+
+    async def _pausable_run(self, awaitable: Awaitable[T]) -> T:
+        """Run an automatic step that Stop step can interrupt (Human Check). Raises TakenOver then."""
+        self._take_over.clear()
+        self._pausable += 1
+        task: asyncio.Future[T] = asyncio.ensure_future(awaitable)
+        pause = asyncio.ensure_future(self._take_over.wait())
+        stop = asyncio.ensure_future(self.cancel.wait())
+        try:
+            await asyncio.wait({task, pause, stop}, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            pause.cancel()
+            stop.cancel()
+            self._pausable -= 1
+        if task.done():
+            return task.result()
+        task.cancel()
+        with contextlib.suppress(BaseException):
+            await task  # let it unwind: its cards close, its JavaScript calls are abandoned
+        if self.cancel.is_set():
+            raise Stopped()
+        self._take_over.clear()
+        raise TakenOver()
 
     async def _sleep(self, seconds: float) -> None:
         try:
@@ -216,7 +291,11 @@ class Pipeline:
         # Human Check picks jobs needing attention up again; Automation leaves them unless asked.
         # The list is read again before every job, so it is the light one (no job descriptions);
         # `run` loads the one job it is about to work on in full.
-        return self.ctx.store.queue(include_attention=self.include_attention or self.mode == "human", light=True)
+        return self.ctx.store.queue(
+            include_attention=self.include_attention or self.mode == "human",
+            include_skipped=self.include_skipped,
+            light=True,
+        )
 
     # -- the run ---------------------------------------------------------------------
 
@@ -226,13 +305,17 @@ class Pipeline:
         try:
             while True:
                 self._check()
+                await self._before_job()
+                self._check()
                 picked = next((item for item in self.queue() if item.id not in done), None)
                 if picked is None:
                     break
                 done.add(picked.id)
                 job = store.get_saved_job(picked.id)
                 if job is None or job.deleted_at is not None:
-                    continue  # removed between the two reads
+                    # Removed between the two reads (here, or by a sync with another PC).
+                    self.host.mark(picked.id, "skipped")
+                    continue
                 self.host.mark(job.id, "current")
                 record = SkipRecord(job.role or "Unknown role", job.company or "Unknown company", "")
                 try:
@@ -248,7 +331,13 @@ class Pipeline:
                         ) from error
                 except SkipJob as skip:
                     record.reason, record.detail = skip.reason, skip.detail
-                    store.skip_saved_job(job.id, reason=skip.reason, detail=skip.detail, keep_saved=skip.keep_saved)
+                    store.skip_saved_job(
+                        job.id,
+                        reason=skip.reason,
+                        detail=skip.detail,
+                        label=SKIP_LABELS.get(skip.reason),
+                        keep_saved=skip.keep_saved,
+                    )
                     if skip.keep_saved:
                         self.summary.attention.append(record)
                         self.host.mark(job.id, "attention")
@@ -276,6 +365,14 @@ class Pipeline:
         finally:
             self._close_tabs()
         return self.summary
+
+    async def _before_job(self) -> None:
+        if self.before_job is None:
+            return
+        try:
+            await asyncio.wait_for(self.before_job(), PRESYNC_SECONDS)
+        except Exception as error:  # noqa: BLE001 - offline or slow: the run goes on without it
+            log.warning("pipeline.presync_skipped %s", type(error).__name__)
 
     async def _count_chat_failure(self, failed: bool) -> None:
         if not failed:
@@ -305,7 +402,11 @@ class Pipeline:
         host = self.host
         host.set_step(1, "Opening the job page…")
         host.log(f"Job: {site_of(job.url)} · opening")
-        data = await self._resolve(job)
+        self._taken_over = False
+        try:
+            data = await self._pausable_run(self._resolve(job))
+        except TakenOver:
+            data = await self._take_over_reading(job)
         self._check()
 
         host.set_step(1, "Checking role and company…")
@@ -317,10 +418,21 @@ class Pipeline:
         ):
             # The page looked like a bare application form, and the AI check did not overrule that.
             raise SkipJob("form_only_no_jd")
+        # The AI check corrects role and company, except where strong sources already agree:
+        # then a different answer from the model is noted, not applied.
+        fused = data.fused
         if data.check.role:
-            data.role = data.check.role
+            keep = fused is not None and fused.role.confidence >= STRONG_CONFIDENCE and bool(data.role)
+            if keep and not same_role(data.check.role, data.role):
+                host.log(f"Kept the role from {fused.role.source if fused else 'the page'} over the AI check.")
+            elif not keep:
+                data.role = data.check.role
         if data.check.company:
-            data.company = data.check.company
+            keep = fused is not None and fused.company.confidence >= STRONG_CONFIDENCE and bool(data.company)
+            if keep and not same_company(data.check.company, data.company):
+                host.log(f"Kept the company from {fused.company.source if fused else 'the page'} over the AI check.")
+            elif not keep:
+                data.company = data.check.company
         self._check()
 
         host.set_step(1, "Review the extracted information")
@@ -355,7 +467,84 @@ class Pipeline:
             resume_json=json.dumps(resume, ensure_ascii=False),
         )
         host.log("Saved.")
+        if self._taken_over and self.mode == "human":
+            # You finished a step yourself: see the resume before the next job starts.
+            await host.resume_ready(saved.id, f"{reviewed.role.strip()} at {reviewed.company.strip()}")
+            self._check()
         return saved.id
+
+    # -- Human Check: the user finishes a step -------------------------------------------
+
+    async def _take_over_reading(self, job: SavedJob) -> ReviewData:
+        """Stop step while reading the job: the user opens or fixes the page, the app reads it."""
+        host = self.host
+        self._taken_over = True
+        host.log("Stopped reading the job: you finish this step.")
+        text = (
+            "Open the job's page in the browser (the real job site, say), then press Continue: the app "
+            "reads the page in front, and you check the details next."
+        )
+        while True:
+            host.set_step(1, "Waiting for you: open the job page, then Continue")
+            action = await host.taken_over(1, "Automatic reading stopped", text)
+            self._check()
+            if action == "stop":
+                raise Stopped()
+            if action != "continue":
+                raise SkipJob("user_cancelled", "Skipped after you took over")
+            tab = host.browser.current()
+            listing = Evidence("listing", role=job.role or "", company=job.company or "", description=job.jd_text or "")
+            if tab is None:
+                fused = self._fuse(listing, [], [])
+                return self._review(fused, job.url, None)
+            host.set_step(1, "Reading the page in front…")
+            try:
+                page = await self._race(extract_page(tab.page()))
+            except (Stopped, chatgpt.Cancelled):
+                raise
+            except Exception as error:  # noqa: BLE001 - an unreadable page: try again or type it in
+                log.warning("pipeline.takeover_read_failed %s", type(error).__name__)
+                text = "That page could not be read. Open the job page in the browser, then press Continue."
+                continue
+            url = page.url or tab.current_url() or job.url
+            if site_of(url) == "linkedin":
+                text = "LinkedIn pages cannot be used. Open the job on its own site, then press Continue."
+                continue
+            fused = self._fuse(listing, page_evidence(page, boost=0.1), [])
+            apply_url = url if url.startswith(WEB_SCHEMES) and site_of(url) not in ("jobright", "linkedin") else None
+            # You chose this page: the "bare form" rule does not apply; the review shows what was read.
+            return self._review(fused, url, apply_url, fallback=page)
+
+    async def _take_over_chat(self, tab: BrowserTab) -> tuple[str, BrowserTab]:
+        """Stop step in ChatGPT: the user finishes the reply, the app reads ChatGPT's latest reply."""
+        host = self.host
+        self._taken_over = True
+        host.log("Stopped the ChatGPT step: you finish it.")
+        host.browser.show_tab(tab)
+        text = (
+            "Finish it yourself in ChatGPT (send, regenerate or edit the reply), then press Continue: the "
+            "app reads ChatGPT's latest reply, checks it and shows the resume."
+        )
+        while True:
+            host.set_step(2, "Waiting for you: finish in ChatGPT, then Continue")
+            action = await host.taken_over(2, "Automatic ChatGPT step stopped", text)
+            self._check()
+            if action == "stop":
+                raise Stopped()
+            if action != "continue":
+                raise SkipJob("user_cancelled", "Skipped after you took over")
+            front = host.browser.current()
+            view = front if front is not None and chatgpt.conversation_url(front.page()) else tab
+            try:
+                reply = await self._race(chatgpt.read_latest_reply(view.page()))
+            except (Stopped, chatgpt.Cancelled):
+                raise
+            except chatgpt.ChatGPTError:
+                reply = ""
+            if reply.strip():
+                host.log(f"Reply: {len(reply):,} characters (read after you finished)")
+                return reply, view
+            text = "No ChatGPT reply was found on the page in front. Finish the reply in ChatGPT, then press Continue."
 
     # -- step 1: the real job page -----------------------------------------------------
 
@@ -393,29 +582,44 @@ class Pipeline:
         tab = self._open(job.url)
         await self._load(job, tab)
         self._check()
+        listing = Evidence("listing", role=job.role or "", company=job.company or "", description=job.jd_text or "")
 
         if site_of(job.url) != "jobright":
             page = await self._read(job, tab)
             if page.is_linkedin or site_of(page.url) == "linkedin":
                 raise SkipJob("linkedin")
-            if not page.has_jd:
+            ats = await self._ats([page.url, *page.ats_urls, *page.apply_links])
+            fused = self._fuse(listing, page_evidence(page, boost=0.1), ats)
+            url = page.url or job.url
+            if not page.has_jd and not self._structured_jd(fused):
+                saved = listing.description.strip()
+                if len(saved) >= MIN_JD_CHARS:
+                    # Saved by hand (Job Search manual mode) with its description: the page no
+                    # longer shows it (signed out, closed posting, a form), the saved copy stands.
+                    self.host.log("Using the job description saved with this job.")
+                    fused.jd = Decision(value=saved, source="listing", confidence=0.7)
+                    return self._review(fused, url, None, fallback=page)
                 # A page that looks form-only but still has some text gets a second opinion
                 # from the AI check (in `_process`); anything else ends here.
                 if page.form_only and len(page.jd_text.strip()) >= MIN_JD_CHARS:
-                    return ReviewData(page.company, page.role, page.jd_text, page.url or job.url, None, form_only=True)
+                    return self._review(fused, url, None, form_only=True, fallback=page)
                 if page.form_only:
                     raise SkipJob("form_only_no_jd")
                 raise SkipJob("extraction_failed", "no job description was found on the page")
-            return ReviewData(page.company, page.role, page.jd_text, page.url or job.url, None)
+            return self._review(fused, url, None, fallback=page)
 
         # ---- a jobright job: read jobright's own description first ----
+        # The order here is the one that has always worked: read jobright, press its Apply
+        # control straight away, follow the real site. The extra sources (ATS API, fusion)
+        # are only consulted afterwards, so nothing delays or changes the Apply step.
         jobright = await self._read(job, tab)
         if jobright.linkedin_source:
             raise SkipJob("linkedin")
-        jobright_jd = jobright.jd_text if jobright.has_jd else (job.jd_text or "")
-        role = jobright.role or job.role or ""
-        company = jobright.company or job.company or ""
-        fallback = ReviewData(company, role, jobright_jd, jobright.url or job.url, None)
+        jobright_evidence = page_evidence(jobright)
+        jobright_url = jobright.url or job.url
+        # The original posting's address from jobright's own data: the final site to apply on
+        # when the Apply control cannot be followed.
+        external = self._external_link(jobright)
 
         self.host.set_step(1, "Opening the real job site…")
         before = set(self.host.browser.views())
@@ -424,14 +628,16 @@ class Pipeline:
         on_jobright = site_of(tab.current_url()) == "jobright"
         if not on_jobright or not await click_apply_control(tab.page()):
             self.host.log("No Apply button found; using JobRight's description.")
-            return self._require_jd(fallback)
+            ats = await self._ats([*jobright.ats_urls, *jobright.apply_links])
+            return self._require_jd(self._review(self._fuse(listing, jobright_evidence, ats), jobright_url, external))
 
         real_tab = await self._wait_new_tab(before, 8.0)
         if real_tab is None and site_of(tab.current_url()) != "jobright":
             real_tab = tab  # Apply went to the real site in the same tab
         if real_tab is None:
             self.host.log("Apply did not open the real site; using JobRight's description.")
-            return self._require_jd(fallback)
+            ats = await self._ats([*jobright.ats_urls, *jobright.apply_links])
+            return self._require_jd(self._review(self._fuse(listing, jobright_evidence, ats), jobright_url, external))
         await self._race(real_tab.wait_loaded(self.ctx.config.page_load_timeout_seconds))
         self._check()
         if site_of(real_tab.current_url()) == "linkedin":
@@ -442,12 +648,71 @@ class Pipeline:
         if real.is_linkedin:
             raise SkipJob("linkedin")
         real_url = real.url or real_tab.current_url()
-        if real.has_jd and not real.blocked:
-            return ReviewData(real.company or company, real.role or role, real.jd_text, real_url, real_url)
+        real_ok = not real.blocked
+        ats = await self._ats([real_url, *real.ats_urls, *jobright.ats_urls, *jobright.apply_links])
+        evidence = [*jobright_evidence, *(page_evidence(real, boost=0.1) if real_ok else [])]
+        fused = self._fuse(listing, evidence, ats)
+        apply_url = real_url if real_url.startswith(WEB_SCHEMES) else external
+        if (real_ok and real.has_jd) or self._structured_jd(fused):
+            return self._require_jd(self._review(fused, real_url, apply_url))
 
         self.host.browser.show_tab(tab)
-        fallback.apply_url = real_url if real_url.startswith(WEB_SCHEMES) else None
-        return self._require_jd(fallback)
+        return self._require_jd(self._review(fused, jobright_url, apply_url))
+
+    @staticmethod
+    def _external_link(page: Extraction) -> str | None:
+        """The first apply link on a jobright page that leads off jobright (and not to LinkedIn)."""
+        for link in page.apply_links:
+            if link.startswith(("http://", "https://")) and site_of(link) not in ("jobright", "linkedin"):
+                return link
+        return None
+
+    async def _ats(self, urls: list[str]) -> list[Evidence]:
+        """The posting from its ATS's public API, when one of these addresses is an ATS posting."""
+        if not ats_api.candidate_refs(url for url in urls if url):
+            return []
+        self._check()
+        try:
+            posting = await self._race(ats_api.lookup([url for url in urls if url]))
+        except SkipJob:
+            raise
+        except Exception:  # noqa: BLE001 - a failing API only means one source fewer
+            log.info("ats.lookup_failed")
+            return []
+        if posting is None:
+            return []
+        self.host.log(f"Read the posting from {posting.provider}'s job API.")
+        return [ats_evidence(posting)]
+
+    def _fuse(self, listing: Evidence, page: list[Evidence], ats: list[Evidence]) -> FusedJob:
+        fused = fuse([listing, *page, *ats])
+        self.host.log(f"Sources: {fused.summary()}")
+        return fused
+
+    @staticmethod
+    def _structured_jd(fused: FusedJob) -> bool:
+        """The description came from data (an API, the page's JSON), not from reading the layout."""
+        return fused.jd.source in ("ats", "net", "state", "ldjson") and len(fused.jd.value) >= MIN_JD_CHARS
+
+    @staticmethod
+    def _review(
+        fused: FusedJob,
+        url: str,
+        apply_url: str | None,
+        *,
+        form_only: bool = False,
+        fallback: Extraction | None = None,
+    ) -> ReviewData:
+        jd = fused.jd.value or (fallback.jd_text if fallback else "")
+        return ReviewData(
+            fused.company.value or (fallback.company if fallback else ""),
+            fused.role.value or (fallback.role if fallback else ""),
+            jd,
+            url,
+            apply_url,
+            form_only=form_only,
+            fused=fused,
+        )
 
     @staticmethod
     def _require_jd(data: ReviewData) -> ReviewData:
@@ -501,15 +766,21 @@ class Pipeline:
 
         host.set_step(2, "Opening ChatGPT…")
         tab = self._open(self.chatgpt_url)
+        host.log(f"Prompt: {len(prompt):,} characters")
+        try:
+            reply = await self._pausable_run(self._send_first(tab, prompt))
+        except TakenOver:
+            reply, tab = await self._take_over_chat(tab)
+        else:
+            host.log(f"Reply: {len(reply):,} characters")
+        await self._step_delay()  # ② → ③
+        return reply, tab
+
+    async def _send_first(self, tab: BrowserTab, prompt: str) -> str:
         if not await self._race(tab.wait_loaded(self.ctx.config.page_load_timeout_seconds)):
             raise SkipJob("chatgpt_failed", "ChatGPT did not load")
         self._check()
-
-        host.log(f"Prompt: {len(prompt):,} characters")
-        reply = await self._exchange(tab, prompt)
-        host.log(f"Reply: {len(reply):,} characters")
-        await self._step_delay()  # ② → ③
-        return reply, tab
+        return await self._exchange(tab, prompt)
 
     async def _exchange(self, tab: BrowserTab, message: str) -> str:
         """Send one message in `tab` and return ChatGPT's reply.
@@ -593,7 +864,10 @@ class Pipeline:
             # Ask for a corrected reply in the SAME conversation.
             host.set_step(2, f"Asking ChatGPT to correct the JSON (attempt {attempt + 1} of {MAX_JSON_ATTEMPTS})…")
             self.host.browser.show_tab(tab)
-            reply = await self._exchange(tab, compose_retry_message(issues))
+            try:
+                reply = await self._pausable_run(self._exchange(tab, compose_retry_message(issues)))
+            except TakenOver:
+                reply, tab = await self._take_over_chat(tab)
 
         raise SkipJob("invalid_json")
 

@@ -10,9 +10,14 @@ import os
 from pathlib import Path
 
 from PySide6.QtCore import QObject
-from PySide6.QtWebEngineCore import QWebEngineDownloadRequest, QWebEngineProfile, QWebEngineSettings
+from PySide6.QtWebEngineCore import (
+    QWebEngineDownloadRequest,
+    QWebEngineProfile,
+    QWebEngineScript,
+    QWebEngineSettings,
+)
 
-from app.config import user_data_dir
+from app.config import resource_path, user_data_dir
 
 #: ChatGPT only writes its reply into the page while the page is painted; these
 #: stop Chromium throttling a tab that is covered or in the background.
@@ -83,4 +88,26 @@ def make_profile(user_id: str, parent: QObject, downloads_dir: Path | None = Non
         request.accept()
 
     profile.downloadRequested.connect(on_download)
+    install_network_capture(profile)
     return profile
+
+
+NETWORK_CAPTURE_NAME = "resume-ai-network-capture"
+
+
+def install_network_capture(profile: QWebEngineProfile) -> None:
+    """Keep a copy of the JSON each page loads, for the job extractor (see js/netcapture.js).
+
+    Runs before the page's own scripts, in the page's world, top frame only.
+    Read-only, and the copies never leave the page.
+    """
+    scripts = profile.scripts()
+    for existing in scripts.find(NETWORK_CAPTURE_NAME):
+        scripts.remove(existing)
+    script = QWebEngineScript()
+    script.setName(NETWORK_CAPTURE_NAME)
+    script.setSourceCode(resource_path("app", "automation", "js", "netcapture.js").read_text(encoding="utf-8"))
+    script.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
+    script.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
+    script.setRunsOnSubFrames(False)
+    scripts.insert(script)

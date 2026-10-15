@@ -32,7 +32,7 @@ from app.ui.widgets.common import (
 )
 
 SOURCE_LABELS = {"jobright": "JobRight", "hiring_cafe": "HiringCafe", "other": "Other"}
-COLUMNS = ["#", "Company", "Role", "Source", "Attention", "Saved At", "Job URL", "Action"]
+COLUMNS = ["#", "Company", "Role", "Source", "Status", "Saved At", "Job URL", "Action"]
 
 
 def cell(*widgets: QWidget, align: Qt.AlignmentFlag = Qt.AlignmentFlag.AlignLeft) -> QWidget:
@@ -152,6 +152,10 @@ class SavedJobsPage(QWidget):
         self.attention_only.setToolTip("Only jobs that were set aside because their page needed you")
         self.attention_only.toggled.connect(lambda _on: self.refresh())
         toolbar.addWidget(self.attention_only)
+        self.skipped_only = QCheckBox("Skipped")
+        self.skipped_only.setToolTip("Only jobs a generation run skipped")
+        self.skipped_only.toggled.connect(lambda _on: self.refresh())
+        toolbar.addWidget(self.skipped_only)
         sort_holder, self.sort = labelled_combo("Sort:", [("oldest", "Oldest first"), ("newest", "Newest first")])
         self.sort.currentIndexChanged.connect(lambda _index: self.refresh())
         toolbar.addWidget(sort_holder)
@@ -216,8 +220,9 @@ class SavedJobsPage(QWidget):
             search=self.search.text().strip(),
             newest_first=self.sort.currentData() == "newest",
             attention_only=self.attention_only.isChecked(),
+            skipped_only=self.skipped_only.isChecked(),
         )
-        filtered = bool(self.search.text().strip()) or self.attention_only.isChecked()
+        filtered = bool(self.search.text().strip()) or self.attention_only.isChecked() or self.skipped_only.isChecked()
         self.count.setText(f"{len(self.rows)} job{'s' if len(self.rows) != 1 else ''}")
         # Only jobs still on screen stay ticked, so nothing hidden by a search is removed unseen.
         self.checked &= {job.id for job in self.rows}
@@ -259,6 +264,14 @@ class SavedJobsPage(QWidget):
                 badge.setToolTip(
                     f"This job was set aside: {plain_tip(job.attention_reason)}. Run the generator in Human "
                     "Check mode to handle it, or tick “Include jobs needing attention” when you start."
+                )
+                table.setCellWidget(index, 4, cell(badge))
+            elif job.skip_reason:
+                reason = job.skip_reason if len(job.skip_reason) <= 34 else job.skip_reason[:33] + "…"
+                badge = label(f"Skipped: {reason}", "SkippedBadge")
+                badge.setToolTip(
+                    f"A generation run skipped this job: {plain_tip(job.skip_reason)}. It is left out of runs; "
+                    "tick “Retry skipped jobs” when you start to try it again, or remove it."
                 )
                 table.setCellWidget(index, 4, cell(badge))
             else:

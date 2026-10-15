@@ -55,6 +55,8 @@ class JobRow:
     created_at: datetime
     #: Found by another profile and taken from the shared list.
     shared: bool = False
+    #: Why a generation run skipped it (it stays in the list); None when not skipped.
+    skip_reason: str | None = None
 
 
 def resume_row(resume: GeneratedResume, *, light: bool = False) -> ResumeRow:
@@ -90,6 +92,7 @@ def job_row(job: SavedJob) -> JobRow:
         attention_reason=job.attention_reason,
         created_at=job.created_at,
         shared=bool(job.shared),
+        skip_reason=job.skip_reason,
     )
 
 
@@ -99,7 +102,7 @@ class DataProvider(Protocol):
     def resumes(self, filters: ResumeFilter | None = None) -> list[ResumeRow]: ...
 
     def saved_jobs(
-        self, *, search: str = "", newest_first: bool = False, attention_only: bool = False
+        self, *, search: str = "", newest_first: bool = False, attention_only: bool = False, skipped_only: bool = False
     ) -> list[JobRow]: ...
 
     async def resume_detail(self, resume_id: str) -> ResumeRow | None: ...
@@ -115,11 +118,17 @@ class LocalProvider:
         # Lists never need the heavy fields; `resume_detail` fetches them for one record.
         return [resume_row(item, light=True) for item in self.store.list_resumes(filters, light=True)]
 
-    def saved_jobs(self, *, search: str = "", newest_first: bool = False, attention_only: bool = False) -> list[JobRow]:
+    def saved_jobs(
+        self, *, search: str = "", newest_first: bool = False, attention_only: bool = False, skipped_only: bool = False
+    ) -> list[JobRow]:
         return [
             job_row(item)
             for item in self.store.list_saved_jobs(
-                search=search, newest_first=newest_first, attention_only=attention_only, light=True
+                search=search,
+                newest_first=newest_first,
+                attention_only=attention_only,
+                skipped_only=skipped_only,
+                light=True,
             )
         ]
 
@@ -222,13 +231,16 @@ class RemoteProvider:
         result.sort(key=lambda row: row.created_at, reverse=f.newest_first)
         return result
 
-    def saved_jobs(self, *, search: str = "", newest_first: bool = False, attention_only: bool = False) -> list[JobRow]:
+    def saved_jobs(
+        self, *, search: str = "", newest_first: bool = False, attention_only: bool = False, skipped_only: bool = False
+    ) -> list[JobRow]:
         term = search.strip().lower()
         result = [
             job
             for job in self.jobs
             if (not term or term in job.company.lower() or term in job.role.lower())
             and (not attention_only or job.attention_reason)
+            and (not skipped_only or job.skip_reason)
         ]
         result.sort(key=lambda job: job.created_at, reverse=newest_first)
         return result

@@ -16,7 +16,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 1;
+  var VERSION = 2;
   if (window.__RAI_EXTRACT__ && window.__RAI_EXTRACT__.version === VERSION) return;
 
   // -------------------------------------------------------------------------
@@ -928,6 +928,375 @@
   }
 
   // -------------------------------------------------------------------------
+  // 2b. Structured job data: the JSON the page loaded (window.__RAI_NET__,
+  //     filled by netcapture.js) and the app state it was rendered from
+  //     (__NEXT_DATA__, React Server Component chunks, __NUXT__, Apollo...).
+  //     Parsed as data, never evaluated. Each job-like object becomes a
+  //     candidate; Python weighs them against the DOM and other sources.
+  // -------------------------------------------------------------------------
+
+  const MAX_CANDIDATES = 6;
+  const WALK_BUDGET = 60000;
+  const SJ_TITLE_KEYS = new Set([
+    'jobtitle',
+    'title',
+    'positiontitle',
+    'postingtitle',
+    'jobpostingtitle',
+    'jobname',
+    'roletitle',
+    'position',
+    'name',
+    'text',
+  ]);
+  const SJ_WEAK_TITLE_KEYS = new Set(['name', 'text', 'position']);
+  const SJ_COMPANY_KEYS = new Set([
+    'companyname',
+    'company',
+    'hiringorganization',
+    'organizationname',
+    'organization',
+    'employer',
+    'employername',
+    'companydisplayname',
+    'brandname',
+    'hiringcompany',
+  ]);
+  const SJ_DESC_KEYS = new Set([
+    'jobdescription',
+    'jobdescriptionhtml',
+    'description',
+    'descriptionhtml',
+    'descriptionplain',
+    'fulldescription',
+    'jobsummary',
+    'summary',
+    'content',
+    'body',
+    'jobdetails',
+    'details',
+    'overview',
+    'aboutthejob',
+    'aboutjob',
+  ]);
+  const SJ_SECTION_TITLES = {
+    responsibilities: 'Responsibilities',
+    coreresponsibilities: 'Responsibilities',
+    keyresponsibilities: 'Responsibilities',
+    duties: 'Responsibilities',
+    whatyoulldo: 'What you will do',
+    whatyouwilldo: 'What you will do',
+    qualifications: 'Qualifications',
+    minimumqualifications: 'Minimum qualifications',
+    basicqualifications: 'Basic qualifications',
+    preferredqualifications: 'Preferred qualifications',
+    requirements: 'Requirements',
+    musthave: 'Required',
+    musthaves: 'Required',
+    required: 'Required',
+    preferredhave: 'Preferred',
+    nicetohave: 'Nice to have',
+    preferred: 'Preferred',
+    skills: 'Skills',
+    requiredskills: 'Skills',
+    benefits: 'Benefits',
+    perks: 'Benefits',
+    additionalinformation: 'Additional information',
+    additionalplain: 'Additional information',
+    lists: '',
+  };
+
+  function keyName(key) {
+    return String(key).toLowerCase().replace(/[^a-z]/g, '');
+  }
+
+  function maybeHtml(value) {
+    const text = String(value);
+    if (/<\/?[a-z][^>]*>|&lt;\/?[a-z]/i.test(text)) return safe(() => stripHtml(text), cleanText(text));
+    return cleanText(text);
+  }
+
+  function plausibleTitle(value) {
+    if (typeof value !== 'string') return '';
+    const line = oneLine(value);
+    if (line.length < 2 || line.length > 200 || isHttpUrl(line)) return '';
+    if (/^(apply|apply now|job details?|careers?|jobs?|home|untitled)$/i.test(line)) return '';
+    return line;
+  }
+
+  function companyOf(value) {
+    if (typeof value === 'string') return oneLine(value).length <= 160 ? oneLine(value) : '';
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      for (const key of ['name', 'companyName', 'displayName', 'title', 'legalName']) {
+        if (typeof value[key] === 'string' && oneLine(value[key])) return oneLine(value[key]).slice(0, 160);
+      }
+    }
+    return '';
+  }
+
+  function sectionText(value, depth) {
+    if (depth > 3 || value == null) return '';
+    if (typeof value === 'string') return maybeHtml(value);
+    if (Array.isArray(value)) {
+      const lines = [];
+      for (const item of value.slice(0, 80)) {
+        if (typeof item === 'string') {
+          const line = maybeHtml(item);
+          if (line) lines.push('• ' + line);
+        } else if (item && typeof item === 'object') {
+          // Lever-style { text, content } and similar pairs.
+          const head = typeof item.text === 'string' ? oneLine(item.text) : typeof item.title === 'string' ? oneLine(item.title) : '';
+          const body = sectionText(item.content != null ? item.content : item.items != null ? item.items : item.value, depth + 1);
+          if (head || body) lines.push((head ? head + '\n' : '') + body);
+        }
+      }
+      return lines.join('\n');
+    }
+    if (typeof value === 'object') {
+      const parts = [];
+      for (const key of Object.keys(value).slice(0, 20)) {
+        const label = SJ_SECTION_TITLES[keyName(key)];
+        const body = sectionText(value[key], depth + 1);
+        if (body) parts.push((label ? label + '\n' : '') + body);
+      }
+      return parts.join('\n\n');
+    }
+    return '';
+  }
+
+  function ownFields(node) {
+    const out = { title: '', weakTitle: false, company: '', description: '', sections: [] };
+    for (const key of Object.keys(node).slice(0, 200)) {
+      const value = node[key];
+      const name = keyName(key);
+      if (SJ_TITLE_KEYS.has(name) && !out.title) {
+        const title = plausibleTitle(value);
+        if (title) {
+          out.title = title;
+          out.weakTitle = SJ_WEAK_TITLE_KEYS.has(name);
+        }
+      } else if (SJ_COMPANY_KEYS.has(name) && !out.company) {
+        out.company = companyOf(value);
+      } else if (SJ_DESC_KEYS.has(name) && typeof value === 'string' && value.length >= 80) {
+        const text = maybeHtml(value);
+        if (text.length > out.description.length) out.description = text;
+      } else if (name in SJ_SECTION_TITLES && value != null && typeof value !== 'boolean') {
+        const body = sectionText(value, 0);
+        if (body.length >= 20) out.sections.push({ label: SJ_SECTION_TITLES[name], text: body });
+      }
+    }
+    return out;
+  }
+
+  function composeDescription(fields) {
+    const parts = [];
+    if (fields.description) parts.push(fields.description);
+    for (const section of fields.sections) {
+      // Skip a section already contained in the description text.
+      const probe = section.text.slice(0, 80);
+      if (fields.description && probe && fields.description.indexOf(probe.replace(/^• /, '')) !== -1) continue;
+      parts.push((section.label ? section.label + '\n' : '') + section.text);
+    }
+    return cleanText(parts.join('\n\n')).slice(0, MAX_JD_LENGTH);
+  }
+
+  /** Job-like objects anywhere in a JSON value. */
+  function findJobObjects(root, source, origin, into) {
+    let budget = WALK_BUDGET;
+    const seen = new Set();
+    const visit = (node, parent, depth) => {
+      if (budget-- <= 0 || depth > 25 || node === null || typeof node !== 'object' || seen.has(node)) return;
+      seen.add(node);
+      if (Array.isArray(node)) {
+        for (const item of node.slice(0, 200)) visit(item, parent, depth + 1);
+        return;
+      }
+      const fields = safe(() => ownFields(node), null);
+      if (fields && fields.title) {
+        let company = fields.company;
+        // { job: {...}, company: {...} } shapes: take the company from a sibling or child.
+        if (!company) {
+          for (const holder of [node, parent]) {
+            if (!holder || company) continue;
+            for (const key of Object.keys(holder).slice(0, 60)) {
+              const value = holder[key];
+              if (value && typeof value === 'object' && value !== node && !Array.isArray(value)) {
+                for (const inner of Object.keys(value).slice(0, 60)) {
+                  if (SJ_COMPANY_KEYS.has(keyName(inner))) {
+                    company = companyOf(value[inner]);
+                    if (company) break;
+                  }
+                }
+              }
+              if (company) break;
+            }
+          }
+        }
+        const description = composeDescription(fields);
+        const strong = !fields.weakTitle || Boolean(company);
+        if (strong && description.length >= MIN_DESCRIPTION_LENGTH) {
+          into.push({
+            source: source,
+            origin: origin,
+            title: clean(fields.title, MAX_FIELD_LENGTH),
+            company: clean(company, MAX_FIELD_LENGTH),
+            description: description,
+            sections: fields.sections.length,
+          });
+        }
+      }
+      for (const key of Object.keys(node).slice(0, 300)) {
+        const value = node[key];
+        if (value && typeof value === 'object') visit(value, node, depth + 1);
+      }
+    };
+    visit(root, null, 0);
+  }
+
+  function hostOf(url) {
+    try {
+      return new URL(url, location.href).hostname.toLowerCase();
+    } catch (error) {
+      return '';
+    }
+  }
+
+  function readWindowValue(name) {
+    try {
+      const value = window[name];
+      return value && typeof value === 'object' ? value : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function structuredCandidates(doc) {
+    const found = [];
+    // a) JSON the page fetched (newest first).
+    const net = readWindowValue('__RAI_NET__');
+    if (net && Array.isArray(net.entries)) {
+      for (const entry of net.entries.slice(-25).reverse()) {
+        if (!entry || typeof entry.text !== 'string') continue;
+        const parsed = parseJson(entry.text);
+        if (parsed && typeof parsed === 'object') findJobObjects(parsed, 'net', hostOf(entry.url), found);
+      }
+    }
+    // b) App state embedded in the page.
+    const next = doc.querySelector('script#__NEXT_DATA__');
+    if (next && next.textContent && next.textContent.length < 5000000) {
+      const parsed = parseJson(next.textContent);
+      if (parsed) findJobObjects(parsed, 'state', hostOf(location.href), found);
+    }
+    for (const name of ['__NUXT__', '__APOLLO_STATE__', '__INITIAL_STATE__', '__PRELOADED_STATE__', '__remixContext', '__staticRouterHydrationData']) {
+      const value = readWindowValue(name);
+      if (value) safe(() => findJobObjects(value, 'state', hostOf(location.href), found), null);
+    }
+    // c) React Server Component chunks (Next.js app router): "id:JSON" lines.
+    const flight = readWindowValue('__next_f');
+    if (Array.isArray(flight)) {
+      let joined = '';
+      for (const chunk of flight.slice(0, 400)) {
+        if (Array.isArray(chunk) && typeof chunk[1] === 'string') joined += chunk[1];
+        if (joined.length > 6000000) break;
+      }
+      for (const line of joined.split('\n').slice(0, 4000)) {
+        const match = /^[0-9a-zA-Z]+:(?=[[{])/.exec(line);
+        if (!match || line.length < 120) continue;
+        const parsed = parseJson(line.slice(match[0].length));
+        if (parsed && typeof parsed === 'object') findJobObjects(parsed, 'state', hostOf(location.href), found);
+      }
+    }
+
+    // Best first: titled and attributed, then the longest, structured description.
+    const scored = found.map((candidate) => ({
+      candidate: candidate,
+      score:
+        (candidate.company ? 2 : 0) +
+        Math.min(candidate.description.length / 700, 6) +
+        Math.min(candidate.sections, 4) +
+        (candidate.source === 'net' ? 0.5 : 0),
+    }));
+    scored.sort((a, b) => b.score - a.score);
+    const out = [];
+    const keys = new Set();
+    for (const item of scored) {
+      const key = (item.candidate.title + '|' + item.candidate.company).toLowerCase();
+      if (keys.has(key)) continue;
+      keys.add(key);
+      out.push(item.candidate);
+      if (out.length >= MAX_CANDIDATES) break;
+    }
+    return out;
+  }
+
+  /**
+   * Addresses on the page that point at a posting on a known ATS: the page
+   * itself, embedded application frames, board scripts and links. Python asks
+   * the ATS's public API for these (app/automation/ats_api.py).
+   */
+  const ATS_URL_RE = /(greenhouse\.io|lever\.co|ashbyhq\.com|myworkdayjobs\.com|myworkdaysite\.com|smartrecruiters\.com|apply\.workable\.com|recruitee\.com)/i;
+
+  function atsUrls(doc) {
+    const out = [];
+    const add = (value) => {
+      if (typeof value !== 'string' || !isHttpUrl(value) || !ATS_URL_RE.test(value)) return;
+      if (out.indexOf(value) === -1 && out.length < 12) out.push(value);
+    };
+    add(String(location.href));
+    for (const frame of Array.from(doc.querySelectorAll('iframe[src]')).slice(0, 20)) add(frame.src);
+    for (const link of Array.from(doc.querySelectorAll('a[href]')).slice(0, 3000)) {
+      if (ATS_URL_RE.test(link.getAttribute('href') || '')) add(link.href);
+    }
+    // A company careers page with ?gh_jid=123 and the Greenhouse board script (for=board).
+    const params = new URLSearchParams(location.search);
+    const ghJob = params.get('gh_jid');
+    if (ghJob && /^\d+$/.test(ghJob)) {
+      for (const script of Array.from(doc.querySelectorAll('script[src*="greenhouse.io"]')).slice(0, 10)) {
+        const board = safe(() => new URL(script.src).searchParams.get('for'), null);
+        if (board) add('https://boards.greenhouse.io/' + encodeURIComponent(board) + '/jobs/' + ghJob);
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Resolve once the page has stopped changing (no DOM mutations for `quietMs`),
+   * or after `maxMs`. Single-page job sites render the description after load.
+   */
+  function waitStable(maxMs, quietMs) {
+    const limit = Math.max(200, Math.min(Number(maxMs) || 4000, 15000));
+    const quiet = Math.max(100, Math.min(Number(quietMs) || 600, 3000));
+    return new Promise((resolve) => {
+      try {
+        const started = Date.now();
+        let last = Date.now();
+        let mutations = 0;
+        const observer = new MutationObserver((records) => {
+          mutations += records.length;
+          last = Date.now();
+        });
+        observer.observe(document.documentElement || document, {
+          subtree: true,
+          childList: true,
+          characterData: true,
+        });
+        const check = () => {
+          const now = Date.now();
+          if (now - last >= quiet || now - started >= limit) {
+            observer.disconnect();
+            resolve({ waitedMs: now - started, mutations: mutations, settled: now - last >= quiet });
+            return;
+          }
+          setTimeout(check, 100);
+        };
+        setTimeout(check, 100);
+      } catch (error) {
+        resolve({ waitedMs: 0, mutations: 0, settled: false });
+      }
+    });
+  }
+
+  // -------------------------------------------------------------------------
   // 3. Generic extraction: meta tags, semantic landmarks, heuristic scan,
   //    document title, URL
   // -------------------------------------------------------------------------
@@ -1394,6 +1763,8 @@
       linkedin_source: false,
       prose_len: 0,
       source: 'generic',
+      candidates: [],
+      ats_urls: [],
     };
   }
 
@@ -1455,6 +1826,8 @@
 
     result.apply_links = links;
     result.linkedin_source = Boolean(linkedinSource);
+    result.candidates = safe(() => structuredCandidates(document), []);
+    result.ats_urls = safe(() => atsUrls(document), []);
     return { result: result, details: details };
   }
 
@@ -2037,5 +2410,9 @@
     scrollForLazy: scrollForLazy,
     findApplyControl: findApplyControl,
     clickApplyControl: clickApplyControl,
+    structuredCandidates: function () {
+      return safe(() => structuredCandidates(document), []);
+    },
+    waitStable: waitStable,
   };
 })();

@@ -156,3 +156,47 @@ async def test_wait_loaded_after_reload_waits_for_the_new_load(qtbot, web_profil
     assert view.loading and view.load_ok is None  # marked at once, before loadStarted arrives
     assert await view.wait_loaded(20, settle=0)
     assert view.loads == loads + 1
+
+
+async def test_ctrl_f_finds_text_in_the_page_like_chrome(qtbot, web_profile):
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    from tests.helpers import load_html
+
+    browser = BrowserWidget(web_profile)
+    qtbot.addWidget(browser)
+    browser.resize(900, 600)
+    browser.show()
+    view = browser.add_tab(None)
+    html = "<html><body><p>Kubernetes and Go.</p><p>More kubernetes.</p><p>KUBERNETES at scale.</p></body></html>"
+    await load_html(view.page(), html, "https://careers.acme.test/jobs/1")
+    assert not browser.find_bar.isVisible()
+
+    # Ctrl+F pressed while reading the page itself.
+    view.setFocus()
+    target = view.focusProxy() or view
+    QTest.keyClick(target, Qt.Key.Key_F, Qt.KeyboardModifier.ControlModifier)
+    assert browser.find_bar.isVisible() and browser.find_input.hasFocus()
+
+    async def result(expected: tuple[int, int]) -> None:
+        for _ in range(100):
+            if browser.find_result == expected:
+                return
+            await asyncio.sleep(0.05)
+        raise AssertionError(f"{browser.find_result} != {expected}")
+
+    browser.find_text("kubernetes")
+    await result((1, 3))
+    assert browser.find_count.text() == "1/3"
+    browser.find_next()
+    await result((2, 3))
+    browser.find_previous()
+    await result((1, 3))
+    browser.find_text("terraform")
+    await result((0, 0))
+    assert browser.find_count.text() == "0/0" and browser.find_input.property("invalid") is True
+
+    QTest.keyClick(browser.find_input, Qt.Key.Key_Escape)
+    assert not browser.find_bar.isVisible() and browser.find_count.text() == ""
+    browser.close_all()

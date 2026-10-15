@@ -24,6 +24,8 @@ EXTRACT_KEYS = {
     "linkedin_source",
     "prose_len",
     "source",
+    "candidates",
+    "ats_urls",
 }
 
 

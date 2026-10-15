@@ -33,6 +33,11 @@ Browse JobRight or HiringCafe in the embedded browser. **Every job you click is 
 
 You can keep browsing and clicking; nothing else is needed. Jobs open in tabs inside the app; close them when you like.
 
+**Auto / Manual** (switch at the top right of the page; the app remembers your choice):
+
+- **Auto** (default) works as described above: JobRight and HiringCafe, every job you open is saved.
+- **Manual**: the JobRight / HiringCafe buttons are hidden and the address bar becomes editable, so you can open any job site (type an address, or words to search the web). Nothing is saved while you browse. When you've reviewed a job, press **Save job** in the blue bar above the browser. The app reads the page the same way as Auto (link, company, role, job description) and adds it to Saved Jobs. If something is missing (for example a site that shows only an application form), or the AI check thinks it isn't a job posting, a **Review before saving** window opens with what was found; fill in or fix the company, role and description, then **Save job**. The button shows **Saved** when the job is already in Saved Jobs, and **Generated** when you already have a resume for it. LinkedIn jobs can't be saved, and a page that needs sign-in or a "verify you are human" check must be finished first.
+
 ### 2. Check the queue (Saved Jobs tab)
 
 The list of everything waiting to be generated, oldest first. Search, sort, tick rows and **Remove selected** for the ones you don't want. A **Needs attention** badge means the page could not be read automatically (sign-in wall, consent page, "verify you are human", error); open it in Job Search, fix it, and it will be retried on the next run.
@@ -44,6 +49,13 @@ The list of everything waiting to be generated, oldest first. Search, sort, tick
 
 "Same" ignores capitals, punctuation, "Inc"/"LLC" and notes such as "(Remote)", and reads "Sr." as "Senior"; "Senior Engineer" and "Engineer" at one company stay two jobs. A job with no company or role is never removed. When it finishes, a small message says how many went, for example **3 duplicate jobs removed (2 already saved, 1 already generated)**, or **No duplicates found**. The button is greyed out while a generation run is working. It takes well under a second even with 20,000 saved jobs.
 
+**One profile on several PCs.** Sign in with the same profile on each PC; they keep each other up to date through the web app:
+
+- A resume generated on one PC appears on the others (Generated Resumes, Dashboard) at their next sync, and its job leaves their Saved Jobs queue, so it is never generated twice.
+- A job removed from Saved Jobs on one PC is removed on the others too.
+- Each PC syncs every 10 minutes (Settings → Sync every), whenever you open Dashboard, Saved Jobs, Resume Generating or Generated Resumes, and before every job of a generation run. To sync at once, click the sync status at the bottom left and press **Sync now**.
+- Don't run a generation on two PCs of the same profile at the same moment: each checks with the other only between jobs, so both could pick the same job.
+
 **Shared job list (several profiles).** Every job a profile saves is also put on a shared list on the web app, and every other profile picks those jobs up into its own Saved Jobs: at each sync, and a moment after you open Saved Jobs or Resume Generating. A small message says how many arrived, and those rows carry a blue **Shared** chip. Each profile keeps its own progress:
 
 - A job you already made a resume for in this profile (same link, or same company and role) is not added.
@@ -54,19 +66,29 @@ The list of everything waiting to be generated, oldest first. Search, sort, tick
 
 ### 3. Generate resumes (Resume Generating tab)
 
+The browser is on screen before you start (it opens ChatGPT, so you can check you are signed in), and its address bar is open: type any address. Press **Ctrl+F** in either browser (Job Search or Resume Generating) to find words on the page, as in Chrome: **Enter** / **Shift+Enter** for the next / previous match, **Esc** to close.
+
 Press **Start** and choose a mode:
 
-- **Human Check** (use this for your first few jobs): for each job the app opens the page, reads company, role and job description, and shows them in the review panel. Check them, correct the company or role if needed, and press **Next**. The app then pastes the prompt + job description into ChatGPT, waits for the JSON reply, validates it, and saves the resume. **Skip Job** leaves the job in the queue; **Cancel Job** removes it.
+- **Human Check** (use this for your first few jobs): for each job the app opens the page, reads company, role and job description, and shows them in the review panel. Check them, correct the company or role if needed, and press **Next**. The app then pastes the prompt + job description into ChatGPT, waits for the JSON reply, validates it, and saves the resume. **Cancel Job** skips it (it stays in Saved Jobs, marked **Skipped**).
 - **Automation**: the same, but each step continues by itself after a countdown (5 seconds by default, adjustable in Settings). Jobs that need a person are set aside after 20 seconds and marked **Needs attention**; the queue continues. You can leave the PC and come back.
 
-While a run is on, the **Start** button becomes **Stop** (it stops at the next safe point; the current job finishes or is left in the queue, never half-saved). **Run log** shows what happened step by step.
+While an Automation run is on, the **Start** button becomes **Stop** (it stops at the next safe point; the current job finishes or is left in the queue, never half-saved). **Run log** shows what happened step by step.
+
+In **Human Check** the button becomes **Stop step**, with **Stop run** next to it:
+
+- **Stop step** stops only the automatic part of the step that is running; the job stays open. While the app is reading the job, open the right page yourself (the real job site, say) and press **Continue**: the app reads the page in front and shows the review panel. While ChatGPT is answering, finish it yourself in ChatGPT (send, regenerate, edit) and press **Continue**: the app reads ChatGPT's latest reply, validates it and saves the resume. **Skip job** instead leaves it marked Skipped.
+- After a step you finished yourself, a card shows **Resume saved: role at company**: **View resume** opens it in Generated Resumes, **Next job** carries on.
+- **Stop run** ends the whole run, as Stop does in Automation.
+
+**Skipped jobs stay in Saved Jobs**, marked **Skipped** with the reason (LinkedIn job, ChatGPT did not answer, cancelled by you…). Runs leave them out; tick **Retry skipped jobs** in the Start dialog to try them again, or remove them in Saved Jobs (the **Skipped** filter lists them).
 
 What makes a run pause and wait for you, in both modes:
 
 - ChatGPT asks you to sign in or shows a "verify you are human" check → sign in / solve it in the browser, then **Retry**.
 - ChatGPT did not answer three jobs in a row → **Retry** or **Stop run**.
 
-Keep the app window open while a run is on. You can switch tabs inside the app; the ChatGPT tab keeps working. Don't use the embedded ChatGPT tab yourself during a run.
+Keep the app window open while a run is on. You can switch tabs inside the app; the ChatGPT tab keeps working. Don't use the embedded ChatGPT tab yourself during a run, except after **Stop step**.
 
 One resume takes roughly 1–3 minutes, most of it waiting for ChatGPT.
 

@@ -277,6 +277,7 @@ class MainWindow(QMainWindow):
         self.saved_jobs.open_in_job_search.connect(self.open_in_browser)
         self.generated.open_url.connect(self.open_in_browser)
         self.generator.open_generated.connect(lambda: self.show_page("generated"))
+        self.generator.open_resume.connect(self.show_resume)
         self.generator.running_changed.connect(self._running_changed)
         self.admin.view_profile.connect(lambda uid, name, email: spawn(self.enter_view_as(uid, name, email)))
 
@@ -397,8 +398,14 @@ class MainWindow(QMainWindow):
         refresh = getattr(page, "refresh", None)
         if callable(refresh) and key != "generator":
             refresh()
-        if key in ("saved_jobs", "generator") and not self.viewing:
-            self.request_sync(SHARED_REFRESH_MS)  # pick up what other profiles found meanwhile
+        if key in ("dashboard", "saved_jobs", "generator", "generated") and not self.viewing:
+            # Pick up what this profile's other PCs and the other profiles did meanwhile.
+            self.request_sync(SHARED_REFRESH_MS)
+
+    def show_resume(self, resume_id: str) -> None:
+        """Generated Resumes, with this resume's preview open."""
+        self.show_page("generated")
+        self.generated.show_details(resume_id)
 
     def open_generated(self, filters: ResumeFilter, description: str) -> None:
         page = self.view_pages["generated"] if self.viewing else self.generated
@@ -517,9 +524,10 @@ class MainWindow(QMainWindow):
         self.sync_chip.setText("  " + sync_chip_text(status))
 
     def _remote_changed(self) -> None:
-        """A pull changed local rows (a status set on the web): refresh what is on screen."""
+        """A pull changed local rows (a status set on the web, a resume made on another PC)."""
         self.refresh_badges()
         if not self.viewing:
+            self.generator.jobs_changed()  # jobs done on another PC leave the queue
             refresh = getattr(self.current_page(), "refresh", None)
             if callable(refresh) and self.current_key != "generator":
                 refresh()

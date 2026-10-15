@@ -107,7 +107,7 @@ class AppConfig:
     job_search_allowed_hosts: tuple[str, ...] = DEFAULT_ALLOWED_HOSTS
     login_hosts: tuple[str, ...] = LOGIN_HOSTS
     automation_step_seconds: int = 5
-    sync_interval_minutes: int = 30
+    sync_interval_minutes: int = 10
     chatgpt_reply_timeout_seconds: int = 540
     page_load_timeout_seconds: int = 45
     attention_grace_seconds: int = 20
@@ -152,7 +152,7 @@ def load_config() -> AppConfig:
         supabase_publishable_key=key,
         job_search_allowed_hosts=hosts or DEFAULT_ALLOWED_HOSTS,
         automation_step_seconds=_int("AUTOMATION_STEP_SECONDS", 5, 1, 30),
-        sync_interval_minutes=_int("SYNC_INTERVAL_MINUTES", 30, 5, 720),
+        sync_interval_minutes=_int("SYNC_INTERVAL_MINUTES", 10, 5, 720),
         chatgpt_reply_timeout_seconds=_int("CHATGPT_REPLY_TIMEOUT_SECONDS", 540, 60, 1800),
         page_load_timeout_seconds=_int("PAGE_LOAD_TIMEOUT_SECONDS", 45, 10, 180),
         attention_grace_seconds=_int("ATTENTION_GRACE_SECONDS", 20, 5, 300),

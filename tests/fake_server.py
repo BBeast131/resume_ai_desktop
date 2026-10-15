@@ -117,11 +117,13 @@ class FakeServer:
         job_results = []
         for row in body["savedJobs"]:
             previous = self.saved_jobs.get(row["id"])
-            self.saved_jobs[row["id"]] = row
+            plain = {k: v for k, v in (previous or {}).items() if not k.startswith("_")}
+            unchanged = previous is not None and plain == row
+            self.saved_jobs[row["id"]] = {**row, "_seq": previous["_seq"] if unchanged else self._tick()}
             job_results.append(
                 {
                     "id": row["id"],
-                    "result": "created" if previous is None else ("unchanged" if previous == row else "updated"),
+                    "result": "created" if previous is None else ("unchanged" if unchanged else "updated"),
                 }
             )
 
@@ -133,7 +135,10 @@ class FakeServer:
     async def sync_pull(self, since: str | None, *, slim: bool, limit: int = 100) -> dict[str, Any]:
         self._check()
         self.pull_calls.append({"since": since, "slim": slim})
-        after_rows, after_tombs = (int(part) for part in (since or "0:0").split(":"))
+        parts = [int(part) for part in (since or "0:0:0").split(":")] + [0]
+        after_rows, after_tombs, after_jobs = parts[0], parts[1], parts[2]
+        jobs = sorted((row for row in self.saved_jobs.values() if row["_seq"] > after_jobs), key=lambda r: r["_seq"])
+        job_page = jobs[:limit]
         rows = sorted((row for row in self.resumes.values() if row["_seq"] > after_rows), key=lambda row: row["_seq"])
         page = rows[:limit]
         tombs = sorted((item for item in self.tombstones.items() if item[1] > after_tombs), key=lambda item: item[1])
@@ -147,8 +152,14 @@ class FakeServer:
         return {
             "generatedResumes": payload,
             "deleted": [{"id": row_id, "deletedAt": "2026-10-02T00:00:00.000Z"} for row_id, _ in tombs],
-            "cursor": f"{page[-1]['_seq'] if page else after_rows}:{tombs[-1][1] if tombs else after_tombs}",
-            "hasMore": len(rows) > limit,
+            "removedJobs": [
+                {"url": row["url"], "removedAt": row["deletedAt"]} for row in job_page if row.get("deletedAt")
+            ],
+            "cursor": (
+                f"{page[-1]['_seq'] if page else after_rows}:{tombs[-1][1] if tombs else after_tombs}"
+                f":{job_page[-1]['_seq'] if job_page else after_jobs}"
+            ),
+            "hasMore": len(rows) > limit or len(jobs) > limit,
             "serverTime": "now",
         }
 

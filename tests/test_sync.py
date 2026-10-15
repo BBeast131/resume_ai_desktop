@@ -256,3 +256,86 @@ async def test_never_sends_the_prompt_or_the_original_resume(tmp_path):
     sent = str(server.push_calls)
     assert "SECRET" not in sent
     assert "jobright description kept locally" not in sent
+
+
+# ---------------------------------------------------------------------------
+# One profile on several PCs
+# ---------------------------------------------------------------------------
+
+
+async def test_a_resume_made_on_another_pc_takes_the_job_out_of_this_pcs_queue(tmp_path):
+    server = FakeServer()
+    first, second = make_store(tmp_path / "pc1"), make_store(tmp_path / "pc2")
+    url = "https://jobright.ai/jobs/info/7"
+    key = "jobright.ai/jobs/info/7"
+    # Both PCs have the job in their queue (found on one, shared to the other).
+    mine = add_job(first, 7, url=url, url_key=key, role="Data Engineer", company="Initech").job
+    theirs = add_job(second, 7, url=url, url_key=key, role="Data Engineer", company="Initech").job
+    await engine_for(first, server).sync()
+
+    # The second PC turns it into a resume.
+    add_resume(
+        second,
+        7,
+        saved_job_id=theirs.id,
+        role="Data Engineer",
+        company="Initech",
+        jd_url=url,
+        source_url=url,
+        url_key=key,
+    )
+    await engine_for(second, server).sync()
+
+    status = await engine_for(first, server).sync()
+    assert status.phase == "idle"
+    assert [r.company for r in first.list_resumes()] == ["Initech"]
+    assert first.list_resumes()[0].url_key == key  # known here as done: never saved or generated again
+    assert first.get_saved_job(mine.id).deleted_at is not None
+    assert first.saved_job_count() == 0
+    assert first.pending_count() == 0  # the removal went back up in the same sync
+    assert first.saved_state(key) == "generated"
+
+
+async def test_a_resume_from_another_pc_retires_its_job_even_without_the_removal_list(tmp_path):
+    """An older web app sends no removed jobs: company and role still match."""
+    server = FakeServer()
+    first, second = make_store(tmp_path / "pc1"), make_store(tmp_path / "pc2")
+    queued = add_job(first, 3, role="Staff Engineer 3", company="Acme 3").job
+    other = add_job(first, 4).job
+    add_resume(second, 3)  # made from a job the other PC found under another link
+    await engine_for(second, server).sync()
+
+    await engine_for(first, server).sync()
+    assert first.get_saved_job(queued.id).deleted_at is not None
+    assert first.get_saved_job(other.id).deleted_at is None
+    reasons = [(skip.reason, skip.detail) for skip in first.list_skips()]
+    assert ("duplicate", "A resume was already generated for this job on another PC") in reasons
+
+
+async def test_a_job_removed_on_another_pc_is_removed_here(tmp_path):
+    server = FakeServer()
+    first, second = make_store(tmp_path / "pc1"), make_store(tmp_path / "pc2")
+    kept = add_job(first, 1).job
+    gone = add_job(first, 2).job
+    remote = add_job(second, 2).job  # the same posting, its own copy on the other PC
+    await engine_for(first, server).sync()
+    await engine_for(second, server).sync()
+
+    second.remove_saved_jobs([remote.id])
+    await engine_for(second, server).sync()
+    await engine_for(first, server).sync()
+
+    assert first.get_saved_job(gone.id).deleted_at is not None
+    assert first.get_saved_job(kept.id).deleted_at is None
+    assert first.pending_count() == 0
+
+
+async def test_resumes_pulled_by_an_older_build_get_their_key_and_retire_their_jobs(tmp_path):
+    server = FakeServer()
+    store = make_store(tmp_path)
+    url = "https://jobright.ai/jobs/info/5"
+    add_resume(store, 5, url_key=None, source_url=None, jd_url=url, company="Hooli", role="Engineer")
+    job = add_job(store, 5, url=url, url_key="jobright.ai/jobs/info/5", role="Platform Engineer", company="Pied").job
+    await engine_for(store, server).sync()
+    assert store.list_resumes()[0].url_key == "jobright.ai/jobs/info/5"
+    assert store.get_saved_job(job.id).deleted_at is not None

@@ -69,6 +69,9 @@ class SavedJob(Base):
     published_at: Mapped[datetime | None] = mapped_column(UtcIso)
     #: Found by another profile and taken from the shared list.
     shared: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    #: Why a run skipped it (kept in the list, left out of runs unless asked); empty = not skipped.
+    skip_reason: Mapped[str | None] = mapped_column(Text)
+    skipped_at: Mapped[datetime | None] = mapped_column(UtcIso)
 
     __table_args__ = (Index("saved_jobs_created_idx", "created_at"),)
 

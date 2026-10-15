@@ -64,7 +64,9 @@ async def test_automation_run_from_start_to_summary(window):
     assert ctx.store.resume_count() == 1 and ctx.store.saved_job_count() == 0
     assert not page.running and page.start.text() == "Start"
     assert not window.nav["generator"].running.isVisible()
-    assert page.board.currentIndex() == 0  # back to the placeholder
+    # The browser stays on screen between runs; the run's step header goes away.
+    assert page.board.currentWidget() is page.run_area and not page.stepper.isVisible()
+    assert not page.browser.address.isReadOnly()
     assert page.download.isEnabled()  # the last resume of this run can be downloaded
     assert window.nav["generated"].badge.text() == "1"
     assert page.summary_dialog.generated.text() == "1 resume generated"
@@ -185,3 +187,66 @@ async def test_a_sign_in_popup_is_not_treated_as_a_job(window, monkeypatch):
 
     assert await search._capture(FakeTab(), "https://jobright.ai/") is None  # type: ignore[arg-type]
     assert search.results == [] and window.toasts.history == []
+
+
+async def _until(condition, seconds: float = 60, what: str = "") -> None:
+    for _ in range(int(seconds * 10)):
+        if condition():
+            return
+        await asyncio.sleep(0.1)
+    raise AssertionError(f"timed out: {what}")
+
+
+def _card_button(page, text: str):
+    return next(item for item in page.alert_card.buttons if item.text().strip().startswith(text))
+
+
+async def test_the_browser_is_there_before_a_run_with_an_open_address_bar(window):
+    page = window.generator
+    assert page.board.currentWidget() is page.run_area and not page.stepper.isVisible()
+    assert len(page.browser.views()) == 1  # ChatGPT, to check you are signed in
+    assert not page.browser.address.isReadOnly() and page.browser.tabs.tabsClosable()
+
+
+async def test_human_check_stop_step_lets_me_finish_chatgpt_and_shows_the_resume(window, monkeypatch):
+    ctx, page = window.ctx, window.generator
+    add(window, JOB)
+    task = page.begin("human")
+    assert page.start.text() == "Stop step" and page.stop_run.isVisible()
+
+    await _until(lambda: page.alert_card.isVisible(), what="review")  # the review
+    page.start.click()  # nothing automatic is running: the button says so and changes nothing
+    assert page.toasts.history[-1][0] == "info" and not task.done()
+    page.review_panel.next_button.click()
+
+    await _until(
+        lambda: (
+            page.pipeline is not None
+            and page.pipeline.can_take_over
+            and page.status.text().startswith("Waiting for ChatGPT")
+        ),
+        what="chatgpt step",
+    )
+    page.start.click()  # Stop step: only the ChatGPT step stops
+    await _until(
+        lambda: page.alert_card.isVisible() and page.alert_title.text() == "Automatic ChatGPT step stopped",
+        what="takeover card",
+    )
+    assert not task.done()
+    await asyncio.sleep(1.5)  # I finish in ChatGPT
+    _card_button(page, "Continue").click()
+
+    await _until(
+        lambda: page.alert_card.isVisible() and page.alert_title.text().startswith("Resume saved:"),
+        what="resume card",
+    )
+    assert ctx.store.resume_count() == 1
+    opened: list[str] = []
+    page.open_resume.connect(opened.append)
+    _card_button(page, "View resume").click()
+    assert opened == [ctx.store.list_resumes()[0].id]
+    window.show_page("generator")
+    _card_button(page, "Next job").click()
+    summary = await asyncio.wait_for(task, 60)
+    assert summary.generated == 1 and not summary.stopped
+    page.summary_dialog.accept()

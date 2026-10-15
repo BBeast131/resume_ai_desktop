@@ -157,9 +157,10 @@ def test_skip_log_and_setting_a_job_aside(tmp_path):
     store.skip_saved_job(cancelled.id, reason="user_cancelled")
     store.skip_saved_job(blocked.id, reason="needs_user_action", detail="page needs sign-in", keep_saved=True)
 
-    remaining = store.list_saved_jobs()
-    assert [job.id for job in remaining] == [blocked.id]
-    assert remaining[0].attention_reason == "page needs sign-in"
+    remaining = {job.id: job for job in store.list_saved_jobs()}
+    assert set(remaining) == {cancelled.id, blocked.id}  # a skipped job stays, marked
+    assert remaining[cancelled.id].skip_reason == "user_cancelled" and remaining[cancelled.id].skipped_at
+    assert remaining[blocked.id].attention_reason == "page needs sign-in" and not remaining[blocked.id].skip_reason
     assert {skip.reason for skip in store.list_skips()} == {"user_cancelled", "needs_user_action"}
 
     # An Automation run leaves jobs needing attention alone unless asked.

@@ -203,6 +203,8 @@ QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus, QSpinBox:focus {{ border
 QLineEdit:read-only {{ background: {t.subtle}; color: {t.text_secondary}; }}
 QLineEdit[invalid="true"], QPlainTextEdit[invalid="true"] {{ border: 1px solid {t.danger}; }}
 QLineEdit#AddressBar {{ background: {t.subtle}; border: 1px solid {t.border}; border-radius: 14px; padding: 5px 12px; color: {t.text_secondary}; }}
+QLineEdit#AddressBar[editable="true"] {{ background: {t.field}; color: {t.text}; border: 1px solid {t.border_strong}; }}
+QLineEdit#AddressBar[editable="true"]:focus {{ border: 1px solid {t.primary}; }}
 #Mono {{ font-family: {t.mono_family}; font-size: 12px; }}
 QComboBox {{
     background: {t.field}; border: 1px solid {t.border_strong}; border-radius: {t.radius_small}px;
@@ -260,6 +262,8 @@ QTabBar::tab:selected {{ color: {t.primary}; border-bottom: 2px solid {t.primary
 #BrowserTabs QTabBar::tab:selected {{ background: {t.card}; color: {t.text}; border-bottom: 2px solid {t.primary}; }}
 #BrowserTabs QTabBar::close-button {{ image: url(ICON_X_MUTED); subcontrol-position: right; }}
 #BrowserTabs QTabBar::close-button:hover {{ background: {t.border}; border-radius: 3px; }}
+#FindBar {{ background: {t.card}; border-bottom: 1px solid {t.border}; }}
+#FindCount {{ color: {t.text_secondary}; background: transparent; font-size: 12px; }}
 #BrowserBar {{ background: {t.card}; border-bottom: 1px solid {t.border}; }}
 
 /* ---- Progress ------------------------------------------------------------------ */
@@ -280,7 +284,11 @@ QSplitter::handle:horizontal {{ width: 1px; }}
 /* ---- Chips, banners, overlays --------------------------------------------------- */
 #Chip {{ background: {t.subtle}; border: 1px solid {t.border}; border-radius: 10px; padding: 2px 9px; font-size: 12px; color: {t.text_secondary}; }}
 #SharedChip {{ background: {t.primary_soft}; border: 1px solid {t.primary_soft_border}; border-radius: 10px; padding: 2px 9px; font-size: 12px; color: {t.primary}; font-weight: 600; }}
+#SkippedBadge {{ background: {t.subtle}; border: 1px solid {t.border_strong}; color: {t.text_secondary}; border-radius: 10px; padding: 2px 9px; font-size: 12px; font-weight: 600; }}
 #AttentionBadge {{ background: {t.warning_soft}; border: 1px solid {t.warning_border}; color: #92400E; border-radius: 10px; padding: 2px 9px; font-size: 12px; font-weight: 600; }}
+#ManualSaveBar {{ background: {t.primary_soft}; border: 1px solid {t.primary_soft_border}; border-radius: {t.radius}px; }}
+#ManualSaveBar QLabel {{ background: transparent; }}
+#ManualSaveBar QLabel#ManualSaveHost {{ color: {t.text}; font-weight: 600; }}
 #ViewAsBanner {{ background: {t.danger_soft}; border-bottom: 1px solid {t.danger_border}; }}
 #ViewAsBanner QLabel {{ color: {t.danger_hover}; font-weight: 600; background: transparent; }}
 #OfflineBanner {{ background: {t.warning_soft}; border-bottom: 1px solid {t.warning_border}; }}

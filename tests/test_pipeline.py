@@ -50,6 +50,13 @@ class Host:
         self.json_answers: list[str] = []
         self.chat_answers: list[str] = []
         self.web_answers: list[str] = []
+        self.takeovers: list[tuple[int, str]] = []
+        self.ready: list[tuple[str, str]] = []
+
+        async def keep_going(_step: int) -> str:
+            return "continue"
+
+        self.on_taken_over: Any = keep_going
 
     def set_step(self, step: int, status: str) -> None:
         self.steps.append((step, status))
@@ -82,6 +89,13 @@ class Host:
 
     async def countdown(self, seconds: int, text: str) -> None:
         return None
+
+    async def taken_over(self, step: int, title: str, text: str) -> str:
+        self.takeovers.append((step, title))
+        return await self.on_taken_over(step)
+
+    async def resume_ready(self, resume_id: str, title: str) -> None:
+        self.ready.append((resume_id, title))
 
     def states(self) -> list[str]:
         return [state for _job, state in self.marks if state != "current"]
@@ -201,7 +215,9 @@ async def test_a_jobright_job_that_leads_to_linkedin_is_cancelled(rig):
     assert [(record.reason) for record in summary.skipped] == ["linkedin"]
     assert host.states() == ["skipped", "done"]
     assert [skip.reason for skip in ctx.store.list_skips()] == ["linkedin"]
-    assert ctx.store.saved_job_count() == 0
+    # It stays in Saved Jobs, marked Skipped, and is left out of the next run.
+    assert [job.skip_reason for job in ctx.store.list_saved_jobs()] == ["LinkedIn job"]
+    assert ctx.store.queue(include_attention=False) == []
 
 
 async def test_a_form_with_no_description_is_cancelled(rig):
@@ -262,7 +278,7 @@ async def test_cancel_job_in_review_removes_it_and_continues(rig):
     host.on_review = lambda data: None if answers.pop(0) is None else data
     summary = await make("human").run()
     assert summary.generated == 1 and [record.reason for record in summary.skipped] == ["user_cancelled"]
-    assert ctx.store.saved_job_count() == 0
+    assert [job.skip_reason for job in ctx.store.list_saved_jobs()] == ["Cancelled by you"]
     assert [skip.reason for skip in ctx.store.list_skips()] == ["user_cancelled"]
 
 
@@ -523,7 +539,8 @@ async def test_three_chatgpt_failures_in_a_row_pause_the_run(rig, monkeypatch):
     summary = await make().run()
     assert summary.stopped and len(summary.skipped) == 3
     assert host.chat_blocked == ["ChatGPT has not answered 3 jobs in a row."]
-    assert ctx.store.saved_job_count() == 2  # an outage does not empty the queue
+    assert len(ctx.store.queue(include_attention=False)) == 2  # an outage does not empty the queue
+    assert ctx.store.skipped_count() == 3  # the three it skipped stay in Saved Jobs, marked Skipped
 
 
 async def test_stop_during_the_last_wait_saves_nothing(rig, monkeypatch):
@@ -608,3 +625,279 @@ async def test_apply_is_only_ever_clicked_on_jobright(rig, monkeypatch):
     monkeypatch.setattr(pipeline_module, "site_of", lambda address: "other")
     await make().run()
     assert clicks == []
+
+
+# ---------------------------------------------------------------------------
+# Several sources: the ATS API, and when the AI check may overrule them
+# ---------------------------------------------------------------------------
+
+ATS_JD = (
+    "About Acme Robotics\nWe build warehouse robots.\n\nResponsibilities\n• Run Kubernetes clusters\n"
+    "• Own the deployment pipeline\n\nRequirements\n• 6+ years of platform engineering\n• Go or Python\n"
+) * 16
+
+
+def _ats_posting(monkeypatch, company: str = "Acme Robotics, Inc.") -> list[list[str]]:
+    from app.automation import ats_api
+    from app.automation.ats_api import AtsPosting, AtsRef
+
+    asked: list[list[str]] = []
+
+    async def lookup(urls, http=None):
+        asked.append(list(urls))
+        return AtsPosting(
+            "greenhouse", "Senior Platform Engineer", company, True, ATS_JD, "https://boards.greenhouse.io/acme/jobs/1"
+        )
+
+    monkeypatch.setattr(ats_api, "candidate_refs", lambda urls: [AtsRef("greenhouse", "u", "a")])
+    monkeypatch.setattr(ats_api, "lookup", lookup)
+    return asked
+
+
+async def test_the_ats_api_copy_is_used_and_strong_sources_stand_against_the_ai_check(rig, monkeypatch):
+    ctx, api, host, add, make = rig
+    asked = _ats_posting(monkeypatch)
+    api.check_reply = {
+        "role": "Totally Different Role",
+        "company": "Wrong Company",
+        "isJobPosting": True,
+        "hasJobDescription": True,
+        "confidence": 0.95,
+        "roleCorrected": True,
+        "companyCorrected": True,
+        "source": "groq",
+    }
+    add("real_job.html", role="Senior Platform Engineer", company="Acme Robotics")
+
+    summary = await make().run()
+
+    assert summary.generated == 1 and asked
+    saved = ctx.store.list_resumes()[0]
+    assert (saved.role, saved.company) == ("Senior Platform Engineer", "Acme Robotics, Inc.")
+    assert saved.jd_text == ATS_JD.strip()
+    assert any(line.startswith("Read the posting from greenhouse") for line in host.logs)
+    assert any(line.startswith("Kept the role from") for line in host.logs)
+    assert any(line.startswith("Kept the company from") for line in host.logs)
+    sources = [line for line in host.logs if line.startswith("Sources: ")]
+    assert sources and "description: ats" in sources[-1]
+    # The log names sources and lengths, never the text.
+    assert not any("warehouse robots" in line for line in host.logs)
+
+
+async def test_the_ai_check_still_corrects_a_weakly_supported_role(rig):
+    ctx, api, host, add, make = rig
+    api.check_reply = {
+        "role": "Platform Engineer (Corrected)",
+        "company": "Acme Robotics",
+        "isJobPosting": True,
+        "hasJobDescription": True,
+        "confidence": 0.9,
+        "roleCorrected": True,
+        "companyCorrected": False,
+        "source": "groq",
+    }
+    # The listing and the page disagree on the role: no strong decision, so the check may correct it.
+    add("real_job.html", role="Office Manager", company="Acme Robotics")
+    summary = await make().run()
+    assert summary.generated == 1
+    assert ctx.store.list_resumes()[0].role == "Platform Engineer (Corrected)"
+
+
+async def test_a_page_without_a_description_is_rescued_by_the_ats_api(rig, monkeypatch):
+    ctx, api, host, add, make = rig
+    _ats_posting(monkeypatch)
+    add("form_job.html", role="Senior Platform Engineer", company="Acme Robotics")
+    summary = await make().run()
+    assert summary.generated == 1 and not summary.skipped
+    assert ctx.store.list_resumes()[0].jd_text == ATS_JD.strip()
+
+
+async def test_a_jobright_job_without_an_apply_button_keeps_the_original_posting_as_apply_url(rig):
+    ctx, api, host, add, make = rig
+    add("jobright_noapply.html")
+    summary = await make().run()
+    assert summary.generated == 1
+    saved = ctx.store.list_resumes()[0]
+    assert saved.jd_url == url("jobright_noapply.html")
+    # The extension opens this, so the application is tracked on the site where it is filed.
+    assert saved.apply_url == "https://careers.acme-robotics.test/jobs/77"
+    assert any(line.startswith("No Apply button found") for line in host.logs)
+
+
+async def test_jobright_apply_is_pressed_before_any_ats_lookup(rig, monkeypatch):
+    ctx, api, host, add, make = rig
+    from app.automation import extractor as extractor_module
+
+    order: list[str] = []
+    original_click = pipeline_module.click_apply_control
+
+    async def click(page):
+        order.append("click")
+        return await original_click(page)
+
+    async def lookup(urls, http=None):
+        order.append("ats")
+        return None
+
+    from app.automation import ats_api
+
+    monkeypatch.setattr(pipeline_module, "click_apply_control", click)
+    monkeypatch.setattr(ats_api, "candidate_refs", lambda urls: ["ref"])
+    monkeypatch.setattr(ats_api, "lookup", lookup)
+    assert extractor_module  # the real page reader runs
+    add("jobright_job.html")
+    summary = await make().run()
+    assert summary.generated == 1
+    assert order[0] == "click" and "ats" in order
+    saved = ctx.store.list_resumes()[0]
+    assert saved.apply_url == url("real_job.html")
+
+
+async def test_a_job_saved_by_hand_with_its_description_uses_it_when_the_page_shows_none(rig):
+    ctx, api, host, add, make = rig
+    saved_jd = (
+        "About the role: build the platform. Responsibilities: own services end to end. "
+        "Requirements: five years of experience with Python and cloud infrastructure. "
+    ) * 3
+    add("form_job.html", role="Platform Engineer", company="Acme Robotics", jd_text=saved_jd)
+    summary = await make().run()
+    assert summary.generated == 1 and not summary.skipped
+    assert ctx.store.list_resumes()[0].jd_text == saved_jd.strip()
+    assert "Using the job description saved with this job." in host.logs
+
+
+async def test_a_quick_sync_before_each_job_drops_jobs_another_pc_already_did(rig):
+    ctx, api, host, add, make = rig
+    first = add("real_job.html", 1)
+    done_elsewhere = add("real_job.html", 2)
+    calls: list[int] = []
+
+    async def before_job() -> None:
+        calls.append(len(calls))
+        if len(calls) == 2:
+            # The sync before the second job finds it generated on the other PC.
+            ctx.store.remove_saved_jobs([done_elsewhere.id])
+
+    pipeline = make()
+    pipeline.before_job = before_job
+    summary = await pipeline.run()
+    assert summary.generated == 1 and not summary.skipped
+    assert (first.id, "done") in host.marks
+    assert all(job_id != done_elsewhere.id for job_id, _state in host.marks)  # never started
+    assert ctx.store.list_resumes()[0].url_key == first.url_key
+    assert len(calls) >= 2
+
+
+async def test_a_failing_sync_before_a_job_does_not_stop_the_run(rig):
+    ctx, api, host, add, make = rig
+    add("real_job.html")
+
+    async def before_job() -> None:
+        raise RuntimeError("offline")
+
+    pipeline = make()
+    pipeline.before_job = before_job
+    summary = await pipeline.run()
+    assert summary.generated == 1
+
+
+# ---------------------------------------------------------------------------
+# Skipped jobs stay in Saved Jobs; Human Check "Stop step"
+# ---------------------------------------------------------------------------
+
+
+async def test_a_skipped_job_stays_in_saved_jobs_marked_skipped_and_is_left_out_next_time(rig):
+    ctx, api, host, add, make = rig
+    job = add("form_job.html")
+    summary = await make().run()
+    assert [record.reason for record in summary.skipped] == ["form_only_no_jd"]
+    kept = ctx.store.get_saved_job(job.id)
+    assert kept.deleted_at is None and kept.skip_reason == "Application form with no job description"
+    assert ctx.store.saved_job_count() == 1 and ctx.store.skipped_count() == 1
+    assert ctx.store.list_skips()[0].reason == "form_only_no_jd"  # still in the skipped log
+
+    # The next run leaves it out, unless asked to retry skipped jobs.
+    again = await make().run()
+    assert again.generated == 0 and not again.skipped
+    retry = await make(include_skipped=True).run()
+    assert [record.reason for record in retry.skipped] == ["form_only_no_jd"]
+
+
+async def _take_over_when(host: Host, pipeline: Pipeline, ready: Any) -> None:
+    for _ in range(600):
+        if pipeline.can_take_over and ready():
+            assert pipeline.take_over()
+            return
+        await asyncio.sleep(0.05)
+    raise AssertionError("the step never became pausable")
+
+
+async def test_stop_step_in_chatgpt_lets_me_finish_and_then_shows_the_resume(rig):
+    ctx, api, host, add, make = rig
+    add("real_job.html")
+
+    async def finish_by_hand(step: int) -> str:
+        await asyncio.sleep(1.5)  # I look at ChatGPT; its reply is complete meanwhile
+        return "continue"
+
+    host.on_taken_over = finish_by_hand
+    pipeline = make("human")
+    assert not pipeline.can_take_over and not pipeline.take_over()  # nothing running yet
+    waiting = lambda: any(status.startswith("Waiting for ChatGPT") for _step, status in host.steps)  # noqa: E731
+    trigger = asyncio.ensure_future(_take_over_when(host, pipeline, waiting))
+    summary = await pipeline.run()
+    await trigger
+
+    assert summary.generated == 1 and not summary.stopped and not summary.skipped
+    assert host.takeovers == [(2, "Automatic ChatGPT step stopped")]
+    assert len(host.ready) == 1 and host.ready[0][0] == summary.last_resume_id
+    assert ctx.store.resume_count() == 1 and ctx.store.saved_job_count() == 0
+    assert "Stopped the ChatGPT step: you finish it." in host.logs
+
+
+async def test_stop_step_while_reading_the_job_reads_the_page_in_front(rig):
+    ctx, api, host, add, make = rig
+    add("real_job.html", role="", company="")
+    pipeline = make("human")
+    trigger = asyncio.ensure_future(_take_over_when(host, pipeline, lambda: bool(host.steps)))
+    summary = await pipeline.run()
+    await trigger
+
+    assert host.takeovers[0] == (1, "Automatic reading stopped")
+    assert summary.generated == 1 and len(host.ready) == 1
+    review = host.reviews[0]
+    assert review.company and review.role and len(review.jd_text) >= 100  # read from the page in front
+
+
+async def test_skip_after_stop_step_keeps_the_job_marked_skipped(rig):
+    ctx, api, host, add, make = rig
+    job = add("real_job.html")
+
+    async def skip(_step: int) -> str:
+        return "skip"
+
+    host.on_taken_over = skip
+    pipeline = make("human")
+    trigger = asyncio.ensure_future(_take_over_when(host, pipeline, lambda: bool(host.steps)))
+    summary = await pipeline.run()
+    await trigger
+    assert [record.reason for record in summary.skipped] == ["user_cancelled"]
+    assert ctx.store.get_saved_job(job.id).skip_reason == "Cancelled by you"
+    assert ctx.store.resume_count() == 0 and not host.ready
+
+
+async def test_stop_step_is_human_check_only(rig):
+    ctx, api, host, add, make = rig
+    add("real_job.html")
+    pipeline = make("automation")
+    results: list[bool] = []
+
+    async def press() -> None:
+        for _ in range(100):
+            results.append(pipeline.take_over())
+            await asyncio.sleep(0.05)
+
+    presser = asyncio.ensure_future(press())
+    summary = await pipeline.run()
+    presser.cancel()
+    assert summary.generated == 1 and not any(results) and not host.takeovers

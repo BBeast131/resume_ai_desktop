@@ -367,6 +367,22 @@ async def count_replies(page: QWebEnginePage) -> int:
     return value if isinstance(value, int) and value >= 0 else 0
 
 
+async def read_latest_reply(page: QWebEnginePage) -> str:
+    """The text of ChatGPT's latest reply on the page as it is now (empty when there is none).
+
+    Used after the user finished a step by hand: no waiting, no streaming checks.
+    """
+    await ensure_bridge(page)
+    try:
+        state = await run_js_json(page, f"{BRIDGE_MARKER}.readBeyond(0)")
+    except JsError as error:
+        raise ChatGPTError("The ChatGPT page did not answer.") from error
+    if not isinstance(state, dict) or state.get("status") != "ok":
+        return ""
+    text = state.get("text")
+    return text.strip() if isinstance(text, str) else ""
+
+
 async def submit_prompt(
     page: QWebEnginePage,
     prompt: str,

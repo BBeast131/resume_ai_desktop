@@ -16,6 +16,7 @@ from sqlalchemy import func, insert, or_, select, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import defer
 
+from app.automation.job_rules import url_key as job_url_key
 from app.data.db import Database
 from app.data.models import (
     SOURCE_SITES,
@@ -64,6 +65,8 @@ class MergeResult:
     changed: int
     #: Records the server knows and this file does not, seen in a status-only pull.
     missing: tuple[str, ...] = ()
+    #: Records this pull created here (made on another PC, or restored).
+    created: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -189,6 +192,8 @@ class Store:
                 existing.jd_text = jd_text
                 existing.extraction_confidence = confidence
                 existing.attention_reason = None
+                existing.skip_reason = None
+                existing.skipped_at = None
                 existing.created_at = at
                 existing.updated_at = at
                 existing.dirty = True
@@ -210,8 +215,26 @@ class Store:
             session.add(job)
             return SaveResult("saved", job)
 
+    def saved_state(self, url_key: str) -> Literal["saved", "generated"] | None:
+        """Whether a job page is already in Saved Jobs or already has a generated resume."""
+        if not url_key:
+            return None
+        with self.database.session() as session:
+            if session.scalar(select(GeneratedResume.id).where(GeneratedResume.url_key == url_key).limit(1)):
+                return "generated"
+            saved = session.scalar(
+                select(SavedJob.id).where(SavedJob.url_key == url_key, SavedJob.deleted_at.is_(None)).limit(1)
+            )
+            return "saved" if saved else None
+
     def list_saved_jobs(
-        self, *, search: str = "", newest_first: bool = False, attention_only: bool = False, light: bool = False
+        self,
+        *,
+        search: str = "",
+        newest_first: bool = False,
+        attention_only: bool = False,
+        skipped_only: bool = False,
+        light: bool = False,
     ) -> list[SavedJob]:
         """The saved jobs. With `light`, the stored job description is not loaded (and must not
         be read from the returned rows): tables and the queue list only show company and role, and
@@ -226,13 +249,20 @@ class Store:
                 query = query.where(or_(SavedJob.company.ilike(like), SavedJob.role.ilike(like)))
             if attention_only:
                 query = query.where(SavedJob.attention_reason.is_not(None))
+            if skipped_only:
+                query = query.where(SavedJob.skip_reason.is_not(None))
             order = SavedJob.created_at.desc() if newest_first else SavedJob.created_at.asc()
             return list(session.scalars(query.order_by(order, SavedJob.id)))
 
-    def queue(self, *, include_attention: bool, light: bool = False) -> list[SavedJob]:
-        """The jobs a run will process, oldest first."""
+    def queue(self, *, include_attention: bool, include_skipped: bool = False, light: bool = False) -> list[SavedJob]:
+        """The jobs a run will process, oldest first. Jobs set aside (needing attention) and jobs
+        an earlier run skipped are left out unless asked for."""
         jobs = self.list_saved_jobs(light=light)
-        return jobs if include_attention else [job for job in jobs if not job.attention_reason]
+        return [
+            job
+            for job in jobs
+            if (include_attention or not job.attention_reason) and (include_skipped or not job.skip_reason)
+        ]
 
     def saved_job_count(self) -> int:
         with self.database.session() as session:
@@ -247,6 +277,17 @@ class Store:
                     select(func.count())
                     .select_from(SavedJob)
                     .where(SavedJob.deleted_at.is_(None), SavedJob.attention_reason.is_not(None))
+                )
+                or 0
+            )
+
+    def skipped_count(self) -> int:
+        with self.database.session() as session:
+            return int(
+                session.scalar(
+                    select(func.count())
+                    .select_from(SavedJob)
+                    .where(SavedJob.deleted_at.is_(None), SavedJob.skip_reason.is_not(None))
                 )
                 or 0
             )
@@ -500,14 +541,16 @@ class Store:
         *,
         reason: str,
         detail: str | None = None,
+        label: str | None = None,
         keep_saved: bool = False,
         now: datetime | None = None,
     ) -> None:
         """Close a job without a resume, in one transaction.
 
-        The job leaves the saved list and is written to the skipped log.
-        `keep_saved` is for a job that needs the user (a blocked page): it
-        stays in Saved Jobs, flagged with the reason.
+        The job is written to the skipped log and STAYS in Saved Jobs, marked with why
+        (`label`, else `detail` or `reason`): runs leave it out unless asked to retry
+        skipped jobs, and the user can remove it. `keep_saved` is for a job that needs the
+        user (a blocked page): it is flagged as needing attention instead.
         """
         at = now or utcnow()
         with self.database.session() as session:
@@ -526,8 +569,12 @@ class Store:
             )
             if keep_saved:
                 job.attention_reason = (detail or reason)[:200]
+                job.skip_reason = None
+                job.skipped_at = None
             else:
-                job.deleted_at = at
+                job.skip_reason = (label or detail or reason)[:200]
+                job.skipped_at = at
+                job.attention_reason = None
             job.updated_at = at
             job.dirty = True
 
@@ -827,6 +874,7 @@ class Store:
         at = now or utcnow()
         changed = 0
         missing: list[str] = []
+        created_ids: list[str] = []
 
         with self.database.session() as session:
             for remote in remote_resumes:
@@ -855,7 +903,8 @@ class Store:
                             jd_url=str(remote.get("jdUrl") or ""),
                             apply_url=remote.get("applyUrl") or None,
                             source_url=None,
-                            url_key=None,
+                            # The page it was made from, so this PC knows the job is done.
+                            url_key=_key_of(remote.get("jdUrl")),
                             jd_text=str(jd_text),
                             chat_url=remote.get("chatUrl") or None,
                             chat_id=None,
@@ -873,6 +922,7 @@ class Store:
                         )
                     )
                     changed += 1
+                    created_ids.append(row_id)
                     continue
 
                 before = (
@@ -928,7 +978,110 @@ class Store:
                     local.dirty = False
                     changed += 1
 
-        return MergeResult(changed, tuple(missing))
+        return MergeResult(changed, tuple(missing), tuple(created_ids))
+
+    # ------------------------------------------------------------------
+    # Several PCs on one profile
+    # ------------------------------------------------------------------
+
+    def backfill_resume_keys(self) -> list[str]:
+        """Give resumes that came from another PC their page key (older builds left it empty).
+
+        Returns the ids that got one, so their saved jobs can be retired here too.
+        """
+        filled: list[str] = []
+        with self.database.session() as session:
+            rows = session.execute(
+                select(GeneratedResume.id, GeneratedResume.jd_url).where(
+                    GeneratedResume.url_key.is_(None), GeneratedResume.deleted_at.is_(None)
+                )
+            ).all()
+            for row_id, jd_url in rows:
+                key = _key_of(jd_url)
+                if key:
+                    session.execute(update(GeneratedResume).where(GeneratedResume.id == row_id).values(url_key=key))
+                    filled.append(row_id)
+        return filled
+
+    def retire_jobs_done_elsewhere(self, resume_ids: Sequence[str], now: datetime | None = None) -> int:
+        """Take jobs that already have a resume (made on another PC) out of this PC's queue.
+
+        A saved job matches by its page (the same link) or by company and role, the same
+        test Check duplicates uses. Each one goes to the skipped log. Returns how many.
+        """
+        if not resume_ids:
+            return 0
+        at = now or utcnow()
+        with self.database.session() as session:
+            keys: set[str] = set()
+            identities: set[str] = set()
+            for start in range(0, len(resume_ids), 500):
+                chunk = list(resume_ids[start : start + 500])
+                for key, company, role in session.execute(
+                    select(GeneratedResume.url_key, GeneratedResume.company, GeneratedResume.role).where(
+                        GeneratedResume.id.in_(chunk), GeneratedResume.deleted_at.is_(None)
+                    )
+                ):
+                    if key:
+                        keys.add(key)
+                    identity = job_key(company, role)
+                    if identity is not None:
+                        identities.add(identity)
+            if not keys and not identities:
+                return 0
+            remove: list[tuple[str, str, str | None, str | None]] = []
+            for job_id, url, key, company, role in session.execute(
+                select(SavedJob.id, SavedJob.url, SavedJob.url_key, SavedJob.company, SavedJob.role).where(
+                    SavedJob.deleted_at.is_(None)
+                )
+            ):
+                if key in keys or job_key(company, role) in identities:
+                    remove.append((job_id, url, company, role))
+            for start in range(0, len(remove), 500):
+                chunk_rows = remove[start : start + 500]
+                session.execute(
+                    update(SavedJob)
+                    .where(SavedJob.id.in_([row[0] for row in chunk_rows]))
+                    .values(deleted_at=at, updated_at=at, dirty=True)
+                )
+                session.execute(
+                    insert(SkippedJob),
+                    [
+                        {
+                            "id": new_id(),
+                            "url": url,
+                            "role": role,
+                            "company": company,
+                            "reason": "duplicate",
+                            "detail": "A resume was already generated for this job on another PC",
+                            "created_at": at,
+                        }
+                        for _id, url, company, role in chunk_rows
+                    ],
+                )
+        return len(remove)
+
+    def apply_remote_removals(self, urls: Iterable[str], now: datetime | None = None) -> int:
+        """Remove jobs this profile removed (or generated) on another PC. Returns how many."""
+        keys = {key for key in (_key_of(url) for url in urls) if key}
+        if not keys:
+            return 0
+        at = now or utcnow()
+        removed = 0
+        with self.database.session() as session:
+            key_list = list(keys)
+            for start in range(0, len(key_list), 500):
+                result = cast(
+                    CursorResult[Any],
+                    session.execute(
+                        update(SavedJob)
+                        .where(SavedJob.url_key.in_(key_list[start : start + 500]), SavedJob.deleted_at.is_(None))
+                        # Sent back too, so the web shows this PC's copy as removed as well.
+                        .values(deleted_at=at, updated_at=at, dirty=True)
+                    ),
+                )
+                removed += result.rowcount or 0
+        return removed
 
     def sync_state(self) -> SyncState:
         with self.database.session() as session:
@@ -944,3 +1097,13 @@ class Store:
             for key, value in values.items():
                 setattr(state, key, value)
             session.add(state)
+
+
+def _key_of(url: object) -> str | None:
+    """A page link reduced to its job identity (see `job_rules.url_key`), or None."""
+    if not isinstance(url, str) or not url.startswith(("http://", "https://")):
+        return None
+    try:
+        return job_url_key(url) or None
+    except ValueError:
+        return None

@@ -87,6 +87,16 @@ class Settings:
         self.set("dashboard_period", value)
 
     @property
+    def job_search_mode(self) -> str:
+        """Job Search: "auto" saves every job opened on JobRight/HiringCafe; "manual" saves on request."""
+        value = str(self.get("job_search_mode", "auto"))
+        return value if value in ("auto", "manual") else "auto"
+
+    @job_search_mode.setter
+    def job_search_mode(self, value: str) -> None:
+        self.set("job_search_mode", value)
+
+    @property
     def start_mode(self) -> str:
         value = str(self.get("start_mode", "automation"))
         return value if value in ("automation", "human") else "automation"

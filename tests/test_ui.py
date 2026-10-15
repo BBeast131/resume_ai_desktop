@@ -640,7 +640,10 @@ def test_run_summary_lists_skips_and_jobs_needing_attention(window, qtbot):
     )
     dialog = SummaryDialog(window, summary)
     qtbot.addWidget(dialog)
-    assert dialog.generated.text() == "3 resumes generated" and dialog.skipped.text() == "3 skipped"
+    assert (
+        dialog.generated.text() == "3 resumes generated"
+        and dialog.skipped.text() == "3 skipped (still in Saved Jobs, marked Skipped)"
+    )
     texts = [item.text() for item in dialog.findChildren(type(dialog.generated))]
     assert any("LinkedIn job: 2" in text for text in texts)
     assert any("Engineer at Acme: page needs sign-in" in text for text in texts)
